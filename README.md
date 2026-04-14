@@ -8,6 +8,7 @@ This plugin for [OpenCode](https://opencode.ai) intercepts outbound requests to 
 - **Automatic Rotation**: Smoothly falls back to the next available key when a rate limit, quota exhaustion, or invalid key error is encountered.
 - **Smart Cooldowns**: Tracks cooldown periods (e.g., 60 seconds for 429 errors or dynamically parsed delays) and prioritizes healthy keys automatically.
 - **Transparent Execution**: Monkey-patches `globalThis.fetch` allowing the `@opencode-ai/sdk` to work without any underlying library changes.
+- **Real-time Sidebar Status**: Displays the currently active key index, its masked value, and the total pool size in the OpenCode right-side panel.
 - **Non-Destructive Integration**: Works flawlessly with your existing OpenCode native credentials (including OAuth `ya29.` tokens or Bearer tokens).
 
 ---

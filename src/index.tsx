@@ -1,4 +1,6 @@
 import { type PluginModule, type Plugin } from "@opencode-ai/plugin";
+import { type TuiPlugin, type TuiPluginApi, type TuiPluginModule } from "@opencode-ai/plugin/tui";
+import { createSignal, onMount, onCleanup, Show } from "solid-js";
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -6,6 +8,20 @@ import path from 'path';
 interface KeyState {
     isValid: boolean;
     availableAt: number;
+}
+
+interface KeyInfo {
+    index: number;
+    maskedKey: string;
+    total: number;
+}
+
+const listeners = new Set<(info: KeyInfo) => void>();
+let lastKeyInfo: KeyInfo = { index: 0, maskedKey: 'None', total: 0 };
+
+function notifyKeyUpdate(info: KeyInfo) {
+    lastKeyInfo = info;
+    listeners.forEach(l => l(info));
 }
 
 export class GeminiRotator {
@@ -19,7 +35,7 @@ export class GeminiRotator {
         this.client = client;
         this.originalFetch = globalThis.fetch;
         this.logFile = path.join(os.tmpdir(), 'gemini-rotator-debug.log');
-        
+
         if (options?.keys && Array.isArray(options.keys)) {
             this.fallbackKeys = options.keys as string[];
         } else if (typeof options?.keys === 'string') {
@@ -76,7 +92,7 @@ export class GeminiRotator {
 
         const requestHeaders = new Headers(init?.headers);
         const isRequestObj = reqInfo instanceof Request;
-        
+
         if (isRequestObj) {
             (reqInfo as Request).headers.forEach((value, key) => {
                 if (!requestHeaders.has(key)) {
@@ -86,7 +102,7 @@ export class GeminiRotator {
         }
 
         const providedKey = requestHeaders.get('x-goog-api-key') || urlObj.searchParams.get('key') || requestHeaders.get('authorization') || '';
-        
+
         let keysToUse = this.fallbackKeys;
         if (providedKey) {
             if (providedKey.includes(',')) {
@@ -111,7 +127,7 @@ export class GeminiRotator {
         const newUrlStr = urlObj.toString();
 
         this.fileLog(`--- Intercepting Gemini Request: ${urlObj.pathname} ---`);
-        
+
         keysToUse.forEach(k => {
             if (!this.keyStates.has(k)) {
                 this.keyStates.set(k, { isValid: true, availableAt: 0 });
@@ -141,7 +157,7 @@ export class GeminiRotator {
                 const stateB = this.keyStates.get(b)!;
                 const isAvailableA = stateA.availableAt <= now;
                 const isAvailableB = stateB.availableAt <= now;
-                
+
                 if (isAvailableA && isAvailableB) {
                     return keysToUse.indexOf(a) - keysToUse.indexOf(b);
                 } else if (isAvailableA) {
@@ -155,7 +171,13 @@ export class GeminiRotator {
 
             const activeKey = validKeys[0];
             const activeState = this.keyStates.get(activeKey)!;
-            const activeKeyMasked = activeKey.length > 15 ? activeKey.substring(0, 8) + "..." : "OAUTH_TOKEN";
+            const activeKeyMasked = activeKey.length > 15 ? activeKey.substring(0, 8) + "..." : (activeKey.startsWith('ya29.') ? "OAuth Token" : activeKey);
+
+            notifyKeyUpdate({
+                index: keysToUse.indexOf(activeKey) + 1,
+                maskedKey: activeKeyMasked,
+                total: keysToUse.length
+            });
 
             if (activeState.availableAt > now) {
                 const sleepMs = activeState.availableAt - now;
@@ -163,10 +185,11 @@ export class GeminiRotator {
                 this.showToast(`All keys on cooldown. Waiting ${Math.ceil(sleepMs / 1000)}s...`, "warning", sleepMs);
                 try {
                     await this.sleep(sleepMs, init?.signal ?? undefined);
-                } catch (e) {                    throw e;
+                } catch (e) {
+                    throw e;
                 }
             }
-            
+
             const fetchHeaders = new Headers(requestHeaders);
             if (activeKey.startsWith('Bearer ') || activeKey.startsWith('ya29.')) {
                 fetchHeaders.set('Authorization', activeKey.startsWith('Bearer ') ? activeKey : `Bearer ${activeKey}`);
@@ -175,7 +198,7 @@ export class GeminiRotator {
                 fetchHeaders.set('x-goog-api-key', activeKey);
                 fetchHeaders.delete('Authorization');
             }
-            
+
             let fetchInput: RequestInfo | URL;
             let fetchInit: RequestInit;
 
@@ -210,11 +233,11 @@ export class GeminiRotator {
                 this.fileLog(`Fetch threw an error: ${error}`);
                 throw error;
             }
-            
+
             let shouldRotate = false;
             let isInvalid = false;
             let delayMs = 10000;
-            
+
             if (response.status === 429) {
                 shouldRotate = true;
                 this.fileLog(`Rate limited (429).`);
@@ -227,7 +250,7 @@ export class GeminiRotator {
                     const firstDetail = errorData?.error?.details?.[0];
                     const reason = (typeof firstDetail === 'object' ? firstDetail?.reason?.toLowerCase() : '') || '';
                     const errorStatus = errorData?.error?.status?.toLowerCase() || '';
-                    
+
                     this.fileLog(`Error: msg="${msg}", reason="${reason}", status="${errorStatus}"`);
 
                     if (msg.includes('api key not valid') || reason.includes('api_key_invalid')) {
@@ -292,9 +315,53 @@ export const server: Plugin = async ({ client }, options) => {
     return {};
 };
 
-export default {
+function SidebarView(props: { api: TuiPluginApi }) {
+    const [info, setInfo] = createSignal<KeyInfo>(lastKeyInfo);
+    const theme = () => props.api.theme.current;
+
+    onMount(() => {
+        const handler = (newInfo: KeyInfo) => setInfo(newInfo);
+        listeners.add(handler);
+        onCleanup(() => listeners.delete(handler));
+    });
+
+    return (
+        <box paddingX={1} marginBottom={1}>
+            <box flexDirection="row" gap={1}>
+                <text fg={theme().primary}><b>GEMINI ROTATOR</b></text>
+            </box>
+            <Show when={info().maskedKey !== 'None'} fallback={<text fg={theme().textMuted}>Waiting for request...</text>}>
+                <box flexDirection="row" gap={1}>
+                    <text fg={theme().text}>Active Key:</text>
+                    <text fg={theme().success}>#{info().index}</text>
+                    <text fg={theme().textMuted}>({info().maskedKey})</text>
+                </box>
+                <text fg={theme().textMuted}>
+                    Pool size: {info().total}
+                </text>
+            </Show>
+        </box>
+    );
+}
+
+export const tui: TuiPlugin = async (api) => {
+    api.slots.register({
+        order: 100,
+        slots: {
+            sidebar_content() {
+                return <SidebarView api={api} />;
+            }
+        }
+    });
+};
+
+const plugin = {
     id: "gemini-key-rotator",
-    server
-} satisfies PluginModule;
+    server,
+    tui
+};
+
+export default plugin as any;
+
 
 
