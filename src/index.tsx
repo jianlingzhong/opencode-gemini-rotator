@@ -16,12 +16,12 @@ interface KeyInfo {
     total: number;
 }
 
-const listeners = new Set<(info: KeyInfo) => void>();
+const statusFile = path.join(os.tmpdir(), 'gemini-rotator-status.json');
 let lastKeyInfo: KeyInfo = { index: 0, maskedKey: 'None', total: 0 };
 
 function notifyKeyUpdate(info: KeyInfo) {
     lastKeyInfo = info;
-    listeners.forEach(l => l(info));
+    fs.promises.writeFile(statusFile, JSON.stringify(info)).catch(() => {});
 }
 
 export class GeminiRotator {
@@ -320,9 +320,15 @@ function SidebarView(props: { api: TuiPluginApi }) {
     const theme = () => props.api.theme.current;
 
     onMount(() => {
-        const handler = (newInfo: KeyInfo) => setInfo(newInfo);
-        listeners.add(handler);
-        onCleanup(() => listeners.delete(handler));
+        const interval = setInterval(() => {
+            try {
+                if (fs.existsSync(statusFile)) {
+                    const data = JSON.parse(fs.readFileSync(statusFile, 'utf-8'));
+                    setInfo(data);
+                }
+            } catch (e) {}
+        }, 1000);
+        onCleanup(() => clearInterval(interval));
     });
 
     return (
