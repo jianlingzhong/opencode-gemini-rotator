@@ -17,6 +17,7 @@
   ],
   "scripts": {
     "build": "rm -rf dist && tsc",
+    "test": "vitest run",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -32,6 +33,8 @@
     "@opencode-ai/sdk": "^1.4.3"
   },
   "devDependencies": {
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0",
+    "@types/node": "^20.0.0"
   }
 }
