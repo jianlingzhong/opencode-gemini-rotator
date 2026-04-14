@@ -1,0 +1,37 @@
+{
+  "name": "opencode-gemini-rotator",
+  "version": "1.0.0",
+  "description": "OpenCode plugin for multiple Gemini API keys rotation",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "opencode",
+    "gemini",
+    "rotator",
+    "api-key"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@opencode-ai/plugin": "^1.4.3",
+    "@opencode-ai/sdk": "^1.4.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
