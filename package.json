@@ -3,24 +3,20 @@
   "version": "1.0.0",
   "description": "OpenCode plugin for multiple Gemini API keys rotation",
   "main": "dist/index.js",
+  "tui": "dist/tui.js",
   "types": "dist/index.d.ts",
   "type": "module",
   "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    },
-    "./tui": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    },
+    ".": "./dist/index.js",
+    "./server": "./dist/server.js",
+    "./tui": "./dist/tui.js",
     "./package.json": "./package.json"
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "rm -rf dist && tsc --emitDeclarationOnly && bun build src/index.tsx --outfile=dist/index.js --target=node --format=esm --external=@opencode-ai/plugin --external=@opencode-ai/sdk --external=solid-js --external=@opentui/solid --external=@opentui/core --jsx=automatic --jsx-import-source=@opentui/solid",
+    "build": "rm -rf dist && tsc --emitDeclarationOnly && bun build.ts",
     "test": "vitest run",
     "prepublishOnly": "npm run build"
   },

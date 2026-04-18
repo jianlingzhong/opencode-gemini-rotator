@@ -1,22 +1,15 @@
-import { type PluginModule, type Plugin } from "@opencode-ai/plugin";
-import { type TuiPlugin, type TuiPluginApi, type TuiPluginModule } from "@opencode-ai/plugin/tui";
-import { createSignal, onMount, onCleanup, Show } from "solid-js";
+import path from "path";
+import os from "os";
+import { type Plugin } from "@opencode-ai/plugin";
 import fs from 'fs';
-import os from 'os';
-import path from 'path';
+import { type KeyInfo } from "./shared.js";
+const statusFile = path.join(os.tmpdir(), "gemini-rotator-status.json");
 
 interface KeyState {
     isValid: boolean;
     availableAt: number;
 }
 
-interface KeyInfo {
-    index: number;
-    maskedKey: string;
-    total: number;
-}
-
-const statusFile = path.join(os.tmpdir(), 'gemini-rotator-status.json');
 let lastKeyInfo: KeyInfo = { index: 0, maskedKey: 'None', total: 0 };
 
 function notifyKeyUpdate(info: KeyInfo) {
@@ -34,7 +27,7 @@ export class GeminiRotator {
     constructor(client: any, options: any) {
         this.client = client;
         this.originalFetch = globalThis.fetch;
-        this.logFile = path.join(os.tmpdir(), 'gemini-rotator-debug.log');
+        this.logFile = options?.logFile || path.join(os.tmpdir(), 'gemini-rotator-debug.log');
 
         if (options?.keys && Array.isArray(options.keys)) {
             this.fallbackKeys = options.keys as string[];
@@ -46,11 +39,13 @@ export class GeminiRotator {
         this.fallbackKeys = this.fallbackKeys.filter(k => k.length > 0);
     }
 
-    private fileLog(msg: string) {
+    private async fileLog(msg: string) {
         const timestampedMsg = `[${new Date().toISOString()}] ${msg}\n`;
-        fs.promises.appendFile(this.logFile, timestampedMsg).catch(() => {
+        try {
+            await fs.promises.appendFile(this.logFile, timestampedMsg);
+        } catch {
             console.debug(`[gemini-rotator] ${msg}`);
-        });
+        }
     }
 
     private async showToast(message: string, variant: "info" | "warning" | "success" | "error" = "info", duration?: number) {
@@ -126,7 +121,7 @@ export class GeminiRotator {
         urlObj.searchParams.delete('key');
         const newUrlStr = urlObj.toString();
 
-        this.fileLog(`--- Intercepting Gemini Request: ${urlObj.pathname} ---`);
+        await this.fileLog(`--- Intercepting Gemini Request: ${urlObj.pathname} ---`);
 
         keysToUse.forEach(k => {
             if (!this.keyStates.has(k)) {
@@ -136,7 +131,7 @@ export class GeminiRotator {
 
         while (true) {
             if (init?.signal?.aborted) {
-                this.fileLog(`Request aborted by user.`);
+                await this.fileLog(`Request aborted by user.`);
                 throw new Error('Aborted');
             }
 
@@ -146,9 +141,9 @@ export class GeminiRotator {
             });
 
             if (validKeys.length === 0) {
-                this.fileLog(`All keys marked as invalid!`);
+                await this.fileLog(`All keys marked as invalid!`);
                 this.showToast(`All provided Gemini keys are invalid!`, "error", 10000);
-                validKeys = keysToUse;
+                throw new Error('All provided Gemini keys are invalid');
             }
 
             const now = Date.now();
@@ -181,7 +176,7 @@ export class GeminiRotator {
 
             if (activeState.availableAt > now) {
                 const sleepMs = activeState.availableAt - now;
-                this.fileLog(`All keys exhausted. Sleeping ${sleepMs}ms until ${activeKeyMasked} available.`);
+                await this.fileLog(`All keys exhausted. Sleeping ${sleepMs}ms until ${activeKeyMasked} available.`);
                 this.showToast(`All keys on cooldown. Waiting ${Math.ceil(sleepMs / 1000)}s...`, "warning", sleepMs);
                 try {
                     await this.sleep(sleepMs, init?.signal ?? undefined);
@@ -226,11 +221,11 @@ export class GeminiRotator {
 
             let response: Response;
             try {
-                this.fileLog(`Trying key (${activeKeyMasked})`);
+                await this.fileLog(`Trying key (${activeKeyMasked})`);
                 response = await this.originalFetch(fetchInput, fetchInit);
-                this.fileLog(`Response Status: ${response.status}`);
+                await this.fileLog(`Response Status: ${response.status}`);
             } catch (error) {
-                this.fileLog(`Fetch threw an error: ${error}`);
+                await this.fileLog(`Fetch threw an error: ${error}`);
                 throw error;
             }
 
@@ -240,7 +235,7 @@ export class GeminiRotator {
 
             if (response.status === 429) {
                 shouldRotate = true;
-                this.fileLog(`Rate limited (429).`);
+                await this.fileLog(`Rate limited (429).`);
                 delayMs = 60000;
             } else if (!response.ok && (response.status === 403 || response.status === 400 || response.status === 503)) {
                 const cloned = response.clone();
@@ -251,7 +246,7 @@ export class GeminiRotator {
                     const reason = (typeof firstDetail === 'object' ? firstDetail?.reason?.toLowerCase() : '') || '';
                     const errorStatus = errorData?.error?.status?.toLowerCase() || '';
 
-                    this.fileLog(`Error: msg="${msg}", reason="${reason}", status="${errorStatus}"`);
+                    await this.fileLog(`Error: msg="${msg}", reason="${reason}", status="${errorStatus}"`);
 
                     if (msg.includes('api key not valid') || reason.includes('api_key_invalid')) {
                         isInvalid = true;
@@ -307,67 +302,12 @@ export class GeminiRotator {
 
 let rotator: GeminiRotator | null = null;
 
+export const id = "gemini-key-rotator";
 export const server: Plugin = async ({ client }, options) => {
-    if (!rotator) {
-        rotator = new GeminiRotator(client, options);
-        rotator.patch();
+    if (rotator) {
+        rotator.unpatch();
     }
+    rotator = new GeminiRotator(client, options);
+    rotator.patch();
     return {};
 };
-
-function SidebarView(props: { api: TuiPluginApi }) {
-    const [info, setInfo] = createSignal<KeyInfo>(lastKeyInfo);
-    const theme = () => props.api.theme.current;
-
-    onMount(() => {
-        const interval = setInterval(() => {
-            try {
-                if (fs.existsSync(statusFile)) {
-                    const data = JSON.parse(fs.readFileSync(statusFile, 'utf-8'));
-                    setInfo(data);
-                }
-            } catch (e) {}
-        }, 1000);
-        onCleanup(() => clearInterval(interval));
-    });
-
-    return (
-        <box paddingX={1} marginBottom={1}>
-            <box flexDirection="row" gap={1}>
-                <text fg={theme().primary}><b>GEMINI ROTATOR</b></text>
-            </box>
-            <Show when={info().maskedKey !== 'None'} fallback={<text fg={theme().textMuted}>Waiting for request...</text>}>
-                <box flexDirection="row" gap={1}>
-                    <text fg={theme().text}>Active Key:</text>
-                    <text fg={theme().success}>#{info().index}</text>
-                    <text fg={theme().textMuted}>({info().maskedKey})</text>
-                </box>
-                <text fg={theme().textMuted}>
-                    Pool size: {info().total}
-                </text>
-            </Show>
-        </box>
-    );
-}
-
-export const tui: TuiPlugin = async (api) => {
-    api.slots.register({
-        order: 100,
-        slots: {
-            sidebar_content() {
-                return <SidebarView api={api} />;
-            }
-        }
-    });
-};
-
-const plugin = {
-    id: "gemini-key-rotator",
-    server,
-    tui
-};
-
-export default plugin as any;
-
-
-
