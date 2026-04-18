@@ -37,6 +37,26 @@ export class GeminiRotator {
             this.fallbackKeys = process.env.GEMINI_API_KEYS.split(',').map(k => k.trim());
         }
         this.fallbackKeys = this.fallbackKeys.filter(k => k.length > 0);
+
+        // Initialize status file with the loaded keys to clear any stale/fake keys from tests
+        // and instantly notify the UI that we have a pool ready.
+        if (this.fallbackKeys.length > 0) {
+            const activeKey = this.fallbackKeys[0];
+            const activeKeyMasked = activeKey.length > 15 ? activeKey.substring(0, 8) + "..." : (activeKey.startsWith('ya29.') ? "OAuth Token" : activeKey);
+            notifyKeyUpdate({
+                index: 1,
+                maskedKey: activeKeyMasked,
+                total: this.fallbackKeys.length
+            });
+        } else {
+            // Clear status file so we don't show stale data (e.g. from unit tests)
+            try {
+                if (fs.existsSync(statusFile)) {
+                    fs.unlinkSync(statusFile);
+                }
+            } catch (e) {}
+            notifyKeyUpdate({ index: 0, maskedKey: 'None', total: 0 });
+        }
     }
 
     private async fileLog(msg: string) {
