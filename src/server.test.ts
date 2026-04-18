@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { GeminiRotator } from './index';
+import { GeminiRotator } from './server.js';
 
 describe('GeminiRotator', () => {
     let rotator: GeminiRotator;
