@@ -8,11 +8,10 @@
   "type": "module",
   "exports": {
     ".": "./dist/index.js",
-    "./server": "./dist/server.js",
-    "./tui": "./dist/tui.js",
-    "./package.json": "./package.json"
+    "./tui": "./dist/tui.js"
   },
   "files": [
+    "src",
     "dist"
   ],
   "scripts": {

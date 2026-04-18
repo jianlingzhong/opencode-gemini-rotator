@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
 import { server } from './server.js';
 import fs from 'fs';
 import os from 'os';
@@ -6,9 +6,18 @@ import path from 'path';
 
 describe('Plugin Verification', () => {
     const logFile = path.join(os.tmpdir(), 'gemini-rotator-verify.log');
+    const statusFile = path.join(os.tmpdir(), 'gemini-rotator-status.json');
 
     beforeEach(() => {
         fs.writeFileSync(logFile, '');
+    });
+
+    afterAll(() => {
+        try {
+            if (fs.existsSync(statusFile)) {
+                fs.unlinkSync(statusFile);
+            }
+        } catch (e) {}
     });
 
     it('should intercept and log requests', async () => {
