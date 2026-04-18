@@ -24,22 +24,35 @@ function SidebarView(props: { api: TuiPluginApi }) {
         onCleanup(() => clearInterval(interval));
     });
 
+    const isGeminiActive = () => {
+        // 1. Check if the rotator has already intercepted and managed requests
+        if (info().total > 0) return true;
+
+        // 2. Check if the active global model implies Gemini/Google will be used
+        const globalModel = props.api.state.config.model?.toLowerCase() || '';
+        if (globalModel.includes('gemini') || globalModel.startsWith('google/')) return true;
+
+        return false;
+    };
+
     return (
-        <box paddingX={1} marginBottom={1}>
-            <box flexDirection="row" gap={1}>
-                <text fg={theme().primary}><b>GEMINI ROTATOR</b></text>
-            </box>
-            <Show when={info().maskedKey !== 'None'} fallback={<text fg={theme().textMuted}>Waiting for request...</text>}>
+        <Show when={isGeminiActive()}>
+            <box paddingX={1} marginBottom={1}>
                 <box flexDirection="row" gap={1}>
-                    <text fg={theme().text}>Active Key:</text>
-                    <text fg={theme().success}>#{info().index}</text>
-                    <text fg={theme().textMuted}>({info().maskedKey})</text>
+                    <text fg={theme().primary}><b>GEMINI ROTATOR</b></text>
                 </box>
-                <text fg={theme().textMuted}>
-                    Pool size: {info().total}
-                </text>
-            </Show>
-        </box>
+                <Show when={info().maskedKey !== 'None'} fallback={<text fg={theme().textMuted}>Waiting for request...</text>}>
+                    <box flexDirection="row" gap={1}>
+                        <text fg={theme().text}>Active Key:</text>
+                        <text fg={theme().success}>#{info().index}</text>
+                        <text fg={theme().textMuted}>({info().maskedKey})</text>
+                    </box>
+                    <text fg={theme().textMuted}>
+                        Pool size: {info().total}
+                    </text>
+                </Show>
+            </box>
+        </Show>
     );
 }
 
