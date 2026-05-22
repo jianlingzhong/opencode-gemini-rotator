@@ -14,6 +14,10 @@ out/
 coverage/
 *.lcov
 
+# Mutation testing reports (Stryker)
+reports/
+.stryker-tmp/
+
 # Logs
 logs/
 *.log
