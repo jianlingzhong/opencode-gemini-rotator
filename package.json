@@ -1,7 +1,7 @@
 {
   "name": "opencode-gemini-rotator",
   "version": "1.0.4",
-  "description": "OpenCode plugin for multiple Gemini API keys rotation",
+  "description": "OpenCode plugin that transparently rotates multiple Gemini API keys to handle rate limits and quota errors.",
   "main": "dist/index.js",
   "tui": "dist/tui.js",
   "types": "dist/index.d.ts",
@@ -12,21 +12,41 @@
   },
   "files": [
     "src",
-    "dist"
+    "dist",
+    "index.js",
+    "LICENSE",
+    "README.md"
   ],
   "scripts": {
     "build": "rm -rf dist && tsc --emitDeclarationOnly && bun build.ts",
     "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
     "opencode",
+    "opencode-plugin",
     "gemini",
-    "rotator",
-    "api-key"
+    "google-ai",
+    "api-key-rotation",
+    "rate-limit",
+    "rotator"
   ],
-  "author": "",
+  "author": "Jianling Zhong <jianlingzh@gmail.com>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jianlingzhong/opencode-gemini-rotator.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jianlingzhong/opencode-gemini-rotator/issues"
+  },
+  "homepage": "https://github.com/jianlingzhong/opencode-gemini-rotator#readme",
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
     "@opencode-ai/plugin": "^1.4.3",
     "@opencode-ai/sdk": "^1.4.3"
@@ -35,8 +55,9 @@
     "@opentui/core": "^0.1.99",
     "@opentui/solid": "^0.1.99",
     "@types/node": "^20.0.0",
+    "@vitest/coverage-v8": "^1.6.1",
     "solid-js": "^1.9.12",
     "typescript": "^5.0.0",
-    "vitest": "^1.0.0"
+    "vitest": "^1.6.1"
   }
 }

@@ -1,0 +1,20 @@
+# Source maps & tests aren't needed in the published tarball
+src/**/*.test.ts
+verify.ts
+build.ts
+tsconfig.json
+vitest.config.ts
+
+# Dev/CI metadata
+.github/
+.gitallowed
+.gitignore
+.opencode/
+CONTRIBUTING.md
+SECURITY.md
+CHANGELOG.md
+bun.lock
+node_modules/
+coverage/
+*.log
+.DS_Store

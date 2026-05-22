@@ -1,47 +1,55 @@
-# Contributing to OpenCode Gemini Rotator
+# Contributing to opencode-gemini-rotator
 
-Thank you for your interest in improving the Gemini Key Rotator! We welcome community contributions.
+Thanks for your interest in improving this plugin! Contributions of all sizes
+are welcome — bug reports, doc fixes, tests, and new features.
 
-## Development Workflow
+## Getting set up
 
-1.  **Clone the repository**:
-    ```bash
-    git clone https://github.com/your-repo/opencode-gemini-rotator.git
-    cd opencode-gemini-rotator
-    ```
+Use [Bun](https://bun.sh) (recommended) or npm.
 
-2.  **Install dependencies**:
-    We recommend using [Bun](https://bun.sh) for development.
-    ```bash
-    bun install
-    ```
+```bash
+git clone https://github.com/jianlingzhong/opencode-gemini-rotator.git
+cd opencode-gemini-rotator
+bun install
+```
 
-3.  **Make your changes**:
-    All source code is located in the `src/` directory.
+## Development loop
 
-4.  **Run tests**:
-    Ensure your changes don't break existing functionality.
-    ```bash
-    bun run test
-    ```
+```bash
+bun run test         # run all unit tests
+bun run test:watch   # re-run on file changes
+bun run typecheck    # strict TS check, no emit
+bun run build        # produce ./dist
+```
 
-5.  **Build the project**:
-    ```bash
-    bun run build
-    ```
+All source lives in `src/`. The entry points are:
 
-## Code Quality Standards
+- `src/server.ts` — the core rotator + `globalThis.fetch` interceptor
+- `src/tui.tsx`   — the SolidJS sidebar widget
+- `src/index.ts`  — re-exports for the OpenCode plugin loader
+- `src/shared.ts` — types shared between server and TUI
 
--   **Type Safety**: Avoid using `any` types. Ensure all functions and variables are strictly typed.
--   **Testing**: Any new features or bug fixes must include corresponding unit tests in `src/index.test.ts`.
--   **Performance**: Avoid synchronous I/O in the network request path. Use `fs.promises` for any file operations.
--   **Security**: Never commit real API keys to the repository. Use the masked output pattern for logs.
+## Code-quality standards
 
-## Submitting a Pull Request
+- **Strict types.** Avoid `any`. The TS config has `strict: true`.
+- **No synchronous I/O on the network path.** Use `fs.promises`.
+- **No secrets in tests.** Use obvious fakes (e.g. `FAKE_KEY_1`,
+  `ya29.test-token`). The `.gitallowed` file whitelists known-safe patterns.
+- **Tests required.** Any new feature or bug fix should include a test in
+  `src/server.test.ts` (or a sibling `*.test.ts` file).
 
-1.  Create a new branch for your feature or fix.
-2.  Commit your changes with clear, descriptive messages.
-3.  Push your branch and open a Pull Request.
-4.  Ensure all CI checks pass.
+## Submitting a PR
 
-We look forward to your contributions!
+1. Create a branch off `main`.
+2. Make your change with tests.
+3. Run `bun run typecheck && bun run test`.
+4. Push and open a PR. Describe *what* changed and *why*.
+5. CI must be green before merge.
+
+## Reporting bugs
+
+Open an issue with:
+- OpenCode version (`opencode --version`)
+- Node/Bun version
+- The relevant portion of `~/.config/opencode/opencode.json` (redacted)
+- A minimal repro and the observed vs expected behavior
