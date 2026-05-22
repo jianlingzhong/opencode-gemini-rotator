@@ -55,7 +55,7 @@ All source lives in `src/`:
 
 Use conventional-commit-style prefixes when possible:
 
-```
+```text
 feat: add support for X
 fix: handle Y edge case in rotation
 docs: clarify Z in README

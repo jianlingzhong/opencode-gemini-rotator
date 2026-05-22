@@ -2,6 +2,15 @@ import solidPlugin from "@opentui/solid/bun-plugin";
 
 console.log("Starting build...");
 
+const EXTERNALS = [
+    "@opencode-ai/plugin",
+    "@opencode-ai/sdk",
+    "@opentui/core",
+    "@opentui/solid",
+    "solid-js",
+    "zod",
+];
+
 const build1 = await Bun.build({
     entrypoints: ["./src/index.ts"],
     outdir: "./dist",
@@ -9,13 +18,7 @@ const build1 = await Bun.build({
     format: "esm",
     plugins: [solidPlugin],
     minify: false,
-    external: [
-        "@opencode-ai/plugin",
-        "@opencode-ai/sdk",
-        "@opentui/core",
-        "@opentui/solid",
-        "solid-js",
-    ],
+    external: EXTERNALS,
 });
 console.log("Build 1 (index) success:", build1.success);
 if (!build1.success) {
@@ -28,7 +31,7 @@ const build2 = await Bun.build({
     target: "node",
     format: "esm",
     minify: false,
-    external: ["@opencode-ai/plugin", "@opencode-ai/sdk"],
+    external: EXTERNALS,
 });
 console.log("Build 2 (server) success:", build2.success);
 if (!build2.success) {
@@ -42,13 +45,7 @@ const build3 = await Bun.build({
     format: "esm",
     plugins: [solidPlugin],
     minify: false,
-    external: [
-        "@opencode-ai/plugin",
-        "@opencode-ai/sdk",
-        "@opentui/core",
-        "@opentui/solid",
-        "solid-js",
-    ],
+    external: EXTERNALS,
 });
 console.log("Build 3 (tui) success:", build3.success);
 if (!build3.success) {

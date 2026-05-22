@@ -1,0 +1,5 @@
+{
+    "extends": "./tsconfig.json",
+    "include": ["**/*.ts", "**/*.tsx", "*.config.{ts,js}", "build.ts", "vitest.config.ts"],
+    "exclude": ["node_modules", "dist", "coverage"]
+}
