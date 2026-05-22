@@ -1,12 +1,20 @@
 name: CodeQL
 
+# CodeQL is dispatch-only by default.
+# Enable repository-level code scanning before switching to scheduled runs.
+# 
+#
+# To switch to scheduled scans:
+#   1. Settings → Code security → Code scanning → Set up → Default,
+#      then either accept the auto-generated workflow OR keep this one.
+#   2. Replace the `on:` block below with:
+#        on:
+#          push:        { branches: [main] }
+#          pull_request: { branches: [main] }
+#          schedule:    [{ cron: "37 4 * * 1" }]
+
 on:
-    push:
-        branches: [main]
-    pull_request:
-        branches: [main]
-    schedule:
-        - cron: "37 4 * * 1"
+    workflow_dispatch:
 
 permissions:
     actions: read
