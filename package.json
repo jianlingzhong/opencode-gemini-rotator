@@ -86,7 +86,7 @@
         "@eslint/js": "^10.0.1",
         "@opentui/core": "^0.2.15",
         "@opentui/solid": "^0.2.15",
-        "@types/node": "^20.0.0",
+        "@types/node": "^25.9.1",
         "@vitest/coverage-v8": "^4.1.7",
         "eslint": "^10.4.0",
         "eslint-plugin-n": "^18.0.1",
