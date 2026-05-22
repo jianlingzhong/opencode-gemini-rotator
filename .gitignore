@@ -1,33 +1,38 @@
-# dependencies (bun install)
-node_modules
+# Dependencies
+node_modules/
 
-# output
-out
+# Build output
+dist/
+out/
 *.tgz
+*.tsbuildinfo
 
-# code coverage
-coverage
+# OpenCode local dev runtime (generated when this is used as a local plugin)
+.opencode/
+
+# Test coverage
+coverage/
 *.lcov
 
-# logs
-logs
-_.log
-report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
+# Logs
+logs/
+*.log
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
-# dotenv environment variable files
+# Environment files
 .env
+.env.local
 .env.development.local
 .env.test.local
 .env.production.local
-.env.local
 
-# caches
+# Caches
 .eslintcache
-.cache
-*.tsbuildinfo
+.cache/
 
-# IntelliJ based IDEs
-.idea
+# Editors / IDEs
+.idea/
+.vscode/
 
-# Finder (MacOS) folder config
+# macOS
 .DS_Store

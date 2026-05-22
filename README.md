@@ -1,62 +1,59 @@
-# OpenCode Gemini Key Rotator Plugin
+# opencode-gemini-rotator
 
-This plugin for [OpenCode](https://opencode.ai) intercepts outbound requests to the Gemini API (`generativelanguage.googleapis.com`) and automatically handles rotation across multiple API keys. This is especially useful when encountering rate limits (HTTP 429) or quota errors (HTTP 403/503 Resource Exhausted).
+[![CI](https://github.com/jianlingzhong/opencode-gemini-rotator/actions/workflows/ci.yml/badge.svg)](https://github.com/jianlingzhong/opencode-gemini-rotator/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+An [OpenCode](https://opencode.ai) plugin that transparently rotates across
+multiple Google **Gemini API keys**. When a request hits a rate-limit (HTTP
+429) or quota error (HTTP 403/503 `RESOURCE_EXHAUSTED`), the plugin clones the
+request, swaps in the next healthy key, and retries — all without the calling
+code knowing anything happened.
 
 ## Features
 
-- **Multiple API Key Support**: Provide an array or a comma-separated string of Gemini API keys.
-- **Automatic Rotation**: Smoothly falls back to the next available key when a rate limit, quota exhaustion, or invalid key error is encountered.
-- **Smart Cooldowns**: Tracks cooldown periods (e.g., 60 seconds for 429 errors or dynamically parsed delays) and prioritizes healthy keys automatically.
-- **Transparent Execution**: Monkey-patches `globalThis.fetch` allowing the `@opencode-ai/sdk` to work without any underlying library changes.
-- **Real-time Sidebar Status**: Displays the currently active key index, its masked value, and the total pool size in the OpenCode right-side panel.
-- **Non-Destructive Integration**: Works flawlessly with your existing OpenCode native credentials (including OAuth `ya29.` tokens or Bearer tokens).
-
----
+- **Multiple key pool** — pass keys as an array, comma-separated string, or
+  via the `GEMINI_API_KEYS` environment variable.
+- **Smart cooldowns** — exhausted keys are parked for a cooldown period
+  (parsed from the API's `Retry-After` header or error message when possible).
+- **Permanent invalidation** — keys returning `API_KEY_INVALID` are removed
+  from rotation for the rest of the session.
+- **Transparent interception** — monkey-patches `globalThis.fetch`, so the
+  `@opencode-ai/sdk` and any other library code Just Works.
+- **OAuth-aware** — `ya29.` tokens (or any `Bearer ` prefix) are sent in the
+  `Authorization` header; raw API keys go in `x-goog-api-key`.
+- **TUI sidebar** — shows the active key index, masked value, and pool size
+  in the OpenCode right-side panel, refreshed in real time.
+- **Scoped impact** — only requests to `generativelanguage.googleapis.com`
+  are touched; everything else passes straight through.
 
 ## Installation
 
-This plugin is currently designed to be used locally via its absolute directory path.
-
-Clone the repository to your machine and build it:
+### Option A — Local plugin (clone & build)
 
 ```bash
-# Clone the repository (replace with your actual repository URL/path)
-git clone <repository-url> opencode-gemini-rotator
+git clone https://github.com/jianlingzhong/opencode-gemini-rotator.git
 cd opencode-gemini-rotator
-
-# Install dependencies and build (using bun or npm)
 bun install
 bun run build
 ```
 
----
-
-## Configuration
-
-To enable the plugin, you must register its **absolute path** in your OpenCode configuration file (typically `opencode.json` or `~/.config/opencode/opencode.json`).
-
-### Option A: Configuration File (Recommended)
-
-You can pass an array of keys directly to the plugin's configuration block.
+Then point your OpenCode config (e.g. `~/.config/opencode/opencode.json`)
+at the absolute path:
 
 ```json
 {
   "plugin": [
     ["/absolute/path/to/opencode-gemini-rotator", {
       "keys": [
-        "AIzaSyYourFirstRealBackupKeyHere...",
-        "AIzaSyYourSecondRealBackupKeyHere..."
+        "AIza...your-first-key",
+        "AIza...your-second-key"
       ]
     }]
   ]
 }
 ```
 
-### Option B: Environment Variable
-
-You can omit the keys from the configuration file and instead provide them via the `GEMINI_API_KEYS` environment variable. 
-
-Update your config:
+### Option B — Environment variable (no keys in config)
 
 ```json
 {
@@ -66,33 +63,68 @@ Update your config:
 }
 ```
 
-Then export the environment variable before running OpenCode:
-
 ```bash
-export GEMINI_API_KEYS="key1,key2,key3"
+export GEMINI_API_KEYS="AIza...key1,AIza...key2,AIza...key3"
+opencode
 ```
 
----
+## How it works
 
-## How It Works Under The Hood
-
-1. **Initialization:** On startup, the plugin initializes a cooldown state mapping for all your provided keys.
-2. **Fetch Interception:** It transparently hooks into Node's `globalThis.fetch`. Only requests specifically hitting `generativelanguage.googleapis.com` are intercepted.
-3. **Primary Key Inclusion:** It checks if a key or OAuth token was provided natively by OpenCode and securely incorporates it as the primary fallback key.
-4. **Header Normalization:** If your fallback key is an OAuth Bearer token (`ya29.`), it places it in the `Authorization` header. Standard API keys are placed in the `x-goog-api-key` header.
-5. **Failure & Rotation:** 
-   - If an HTTP 429 (Rate Limit) or 403 (Quota Exceeded) is returned, the plugin marks that specific key as "exhausted" for a cooldown period (ranging from 10s up to a dynamically parsed duration). 
-   - It seamlessly clones the request, switches to the next available healthy key, and transparently retries.
-   - A Toast notification is displayed in the Terminal UI to alert you of the rotation.
+1. **Init.** On startup, the plugin records each key as "healthy" with
+   `availableAt: 0`.
+2. **Intercept.** It hooks `globalThis.fetch`. Requests to hosts other than
+   `generativelanguage.googleapis.com` are passed through unchanged.
+3. **Key selection.** Any key/token already present on the inbound request
+   (header or `?key=` query param) is added to the candidate pool, so
+   OpenCode's native credentials remain in play.
+4. **Header normalization.** Keys starting with `ya29.` or `Bearer ` are
+   placed in the `Authorization` header; everything else goes in
+   `x-goog-api-key`. The `?key=` query param is stripped.
+5. **Failure & rotation.**
+   - `429` → cooldown 60 s, rotate.
+   - `403`/`503` with `RESOURCE_EXHAUSTED` or quota text → cooldown derived
+     from `Retry-After` header or error message (`reset after 30s`), rotate.
+   - `400` with `API_KEY_INVALID` → mark the key invalid for the session,
+     rotate.
+   - Anything else → response is returned to the caller untouched.
+6. **Toast notification.** Each rotation pops a transient warning in the
+   OpenCode TUI.
 
 ## Debugging
 
-If you are encountering issues, the plugin logs debug telemetry to `/tmp/gemini-rotator-debug.log`. You can inspect this file to see detailed request flows, header configurations, and rotation timings.
+File logging is **opt-in**. Enable it by either:
+
+```bash
+export OPENCODE_GEMINI_DEBUG=1
+```
+
+…or by passing `logFile` in the plugin options:
+
+```json
+[["/path/to/opencode-gemini-rotator", { "keys": [...], "logFile": "/tmp/gemini-rotator.log" }]]
+```
+
+Then tail the log:
 
 ```bash
 tail -f /tmp/gemini-rotator-debug.log
 ```
 
+## Development
+
+```bash
+bun install
+bun run test           # unit tests
+bun run test:coverage  # with coverage report
+bun run typecheck      # tsc --noEmit
+bun run build          # produces ./dist
+```
+
+## Security
+
+Please do not commit real API keys to any branch. If you find a vulnerability,
+see [SECURITY.md](./SECURITY.md).
+
 ## License
 
-MIT License.
+[MIT](./LICENSE)

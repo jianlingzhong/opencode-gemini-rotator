@@ -3,6 +3,7 @@ import os from "os";
 import { type Plugin } from "@opencode-ai/plugin";
 import fs from 'fs';
 import { type KeyInfo } from "./shared.js";
+
 const statusFile = path.join(os.tmpdir(), "gemini-rotator-status.json");
 
 interface KeyState {
@@ -10,31 +11,56 @@ interface KeyState {
     availableAt: number;
 }
 
-let lastKeyInfo: KeyInfo = { index: 0, maskedKey: 'None', total: 0 };
+export interface RotatorOptions {
+    /** Array or comma-separated string of Gemini API keys. */
+    keys?: string[] | string;
+    /** Optional path to a debug log file. If omitted, no file logging is performed. */
+    logFile?: string;
+}
 
-function notifyKeyUpdate(info: KeyInfo) {
-    lastKeyInfo = info;
+interface ToastClient {
+    tui?: {
+        showToast: (args: {
+            body: { message: string; variant?: "info" | "warning" | "success" | "error"; duration?: number };
+        }) => Promise<unknown>;
+    };
+}
+
+interface GeminiErrorBody {
+    error?: {
+        message?: string;
+        status?: string;
+        details?: Array<{ reason?: string }>;
+    };
+}
+
+function notifyKeyUpdate(info: KeyInfo): void {
     fs.promises.writeFile(statusFile, JSON.stringify(info)).catch(() => {});
 }
 
 export class GeminiRotator {
     private originalFetch: typeof globalThis.fetch;
     private keyStates: Map<string, KeyState> = new Map();
-    private logFile: string;
+    private logFile: string | undefined;
     private fallbackKeys: string[] = [];
-    private client: any;
+    private client: ToastClient;
 
-    constructor(client: any, options: any) {
+    constructor(client: ToastClient, options: RotatorOptions = {}) {
         this.client = client;
         this.originalFetch = globalThis.fetch;
-        this.logFile = options?.logFile || path.join(os.tmpdir(), 'gemini-rotator-debug.log');
+        // File logging is opt-in: enable via `options.logFile` or OPENCODE_GEMINI_DEBUG=1
+        if (options.logFile) {
+            this.logFile = options.logFile;
+        } else if (process.env.OPENCODE_GEMINI_DEBUG === "1") {
+            this.logFile = path.join(os.tmpdir(), "gemini-rotator-debug.log");
+        }
 
-        if (options?.keys && Array.isArray(options.keys)) {
-            this.fallbackKeys = options.keys as string[];
-        } else if (typeof options?.keys === 'string') {
-            this.fallbackKeys = (options.keys as string).split(',').map((k: string) => k.trim());
+        if (Array.isArray(options.keys)) {
+            this.fallbackKeys = options.keys;
+        } else if (typeof options.keys === "string") {
+            this.fallbackKeys = options.keys.split(",").map(k => k.trim());
         } else if (process.env.GEMINI_API_KEYS) {
-            this.fallbackKeys = process.env.GEMINI_API_KEYS.split(',').map(k => k.trim());
+            this.fallbackKeys = process.env.GEMINI_API_KEYS.split(",").map(k => k.trim());
         }
         this.fallbackKeys = this.fallbackKeys.filter(k => k.length > 0);
 
@@ -59,18 +85,23 @@ export class GeminiRotator {
         }
     }
 
-    private async fileLog(msg: string) {
+    private async fileLog(msg: string): Promise<void> {
+        if (!this.logFile) return;
         const timestampedMsg = `[${new Date().toISOString()}] ${msg}\n`;
         try {
             await fs.promises.appendFile(this.logFile, timestampedMsg);
         } catch {
-            console.debug(`[gemini-rotator] ${msg}`);
+            // Logging failures should never crash a request
         }
     }
 
-    private async showToast(message: string, variant: "info" | "warning" | "success" | "error" = "info", duration?: number) {
+    private async showToast(
+        message: string,
+        variant: "info" | "warning" | "success" | "error" = "info",
+        duration?: number,
+    ): Promise<void> {
         try {
-            await this.client.tui.showToast({
+            await this.client.tui?.showToast({
                 body: { message, variant, duration },
             });
         } catch {
@@ -260,10 +291,10 @@ export class GeminiRotator {
             } else if (!response.ok && (response.status === 403 || response.status === 400 || response.status === 503)) {
                 const cloned = response.clone();
                 try {
-                    const errorData = await cloned.json() as any;
+                    const errorData = (await cloned.json()) as GeminiErrorBody;
                     const msg = errorData?.error?.message?.toLowerCase() || '';
                     const firstDetail = errorData?.error?.details?.[0];
-                    const reason = (typeof firstDetail === 'object' ? firstDetail?.reason?.toLowerCase() : '') || '';
+                    const reason = firstDetail?.reason?.toLowerCase() || '';
                     const errorStatus = errorData?.error?.status?.toLowerCase() || '';
 
                     await this.fileLog(`Error: msg="${msg}", reason="${reason}", status="${errorStatus}"`);
@@ -292,7 +323,9 @@ export class GeminiRotator {
                             }
                         }
                     }
-                } catch (e) {}
+                } catch {
+                    // Body wasn't JSON; treat as opaque non-rotatable error and pass through.
+                }
             }
 
             if (isInvalid) {
@@ -311,11 +344,11 @@ export class GeminiRotator {
         }
     }
 
-    public patch() {
-        (globalThis as any).fetch = this.fetch.bind(this);
+    public patch(): void {
+        globalThis.fetch = this.fetch.bind(this);
     }
 
-    public unpatch() {
+    public unpatch(): void {
         globalThis.fetch = this.originalFetch;
     }
 }
@@ -327,7 +360,7 @@ export const server: Plugin = async ({ client }, options) => {
     if (rotator) {
         rotator.unpatch();
     }
-    rotator = new GeminiRotator(client, options);
+    rotator = new GeminiRotator(client as unknown as ToastClient, (options ?? {}) as RotatorOptions);
     rotator.patch();
     return {};
 };
