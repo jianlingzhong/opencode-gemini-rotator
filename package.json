@@ -1,63 +1,90 @@
 {
-  "name": "opencode-gemini-rotator",
-  "version": "1.0.0",
-  "description": "OpenCode plugin that transparently rotates multiple Gemini API keys to handle rate limits and quota errors.",
-  "main": "dist/index.js",
-  "tui": "dist/tui.js",
-  "types": "dist/index.d.ts",
-  "type": "module",
-  "exports": {
-    ".": "./dist/index.js",
-    "./tui": "./dist/tui.js"
-  },
-  "files": [
-    "src",
-    "dist",
-    "index.js",
-    "LICENSE",
-    "README.md"
-  ],
-  "scripts": {
-    "build": "rm -rf dist && tsc --emitDeclarationOnly && bun build.ts",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "typecheck": "tsc --noEmit",
-    "prepublishOnly": "npm run build"
-  },
-  "keywords": [
-    "opencode",
-    "opencode-plugin",
-    "gemini",
-    "google-ai",
-    "api-key-rotation",
-    "rate-limit",
-    "rotator"
-  ],
-  "author": "Jianling Zhong <jianlingzh@gmail.com>",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/jianlingzhong/opencode-gemini-rotator.git"
-  },
-  "bugs": {
-    "url": "https://github.com/jianlingzhong/opencode-gemini-rotator/issues"
-  },
-  "homepage": "https://github.com/jianlingzhong/opencode-gemini-rotator#readme",
-  "engines": {
-    "node": ">=18"
-  },
-  "dependencies": {
-    "@opencode-ai/plugin": "^1.4.3",
-    "@opencode-ai/sdk": "^1.4.3"
-  },
-  "devDependencies": {
-    "@opentui/core": "^0.1.99",
-    "@opentui/solid": "^0.1.99",
-    "@types/node": "^20.0.0",
-    "@vitest/coverage-v8": "^1.6.1",
-    "solid-js": "^1.9.12",
-    "typescript": "^5.0.0",
-    "vitest": "^1.6.1"
-  }
+    "name": "opencode-gemini-rotator",
+    "version": "1.0.0",
+    "description": "OpenCode plugin that rotates multiple Google Gemini API keys to bypass per-key rate limits (HTTP 429) and quota exhaustion (HTTP 403/503 RESOURCE_EXHAUSTED) — drop-in, transparent fetch interceptor with cooldown and TUI sidebar.",
+    "keywords": [
+        "opencode",
+        "opencode-plugin",
+        "opencode-ai",
+        "gemini",
+        "gemini-api",
+        "gemini-pro",
+        "google-gemini",
+        "google-ai",
+        "generative-ai",
+        "api-key",
+        "api-key-rotation",
+        "key-rotation",
+        "rate-limit",
+        "rate-limiting",
+        "quota",
+        "rotator",
+        "fallback",
+        "retry",
+        "fetch",
+        "interceptor",
+        "llm",
+        "ai-tools",
+        "developer-tools",
+        "tui"
+    ],
+    "homepage": "https://github.com/jianlingzhong/opencode-gemini-rotator#readme",
+    "bugs": {
+        "url": "https://github.com/jianlingzhong/opencode-gemini-rotator/issues"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/jianlingzhong/opencode-gemini-rotator.git"
+    },
+    "license": "MIT",
+    "author": "Jianling Zhong <jianlingzh@gmail.com>",
+    "type": "module",
+    "main": "dist/index.js",
+    "tui": "dist/tui.js",
+    "types": "dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "default": "./dist/index.js"
+        },
+        "./tui": {
+            "types": "./dist/tui.d.ts",
+            "default": "./dist/tui.js"
+        },
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "dist",
+        "src",
+        "LICENSE",
+        "README.md",
+        "CHANGELOG.md"
+    ],
+    "engines": {
+        "node": ">=18"
+    },
+    "scripts": {
+        "build": "rm -rf dist && tsc --emitDeclarationOnly && bun build.ts",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "test:coverage": "vitest run --coverage",
+        "typecheck": "tsc --noEmit",
+        "format": "prettier --write .",
+        "format:check": "prettier --check .",
+        "prepublishOnly": "bun run typecheck && bun run test && bun run build"
+    },
+    "dependencies": {
+        "@opencode-ai/plugin": "^1.4.3",
+        "@opencode-ai/sdk": "^1.4.3"
+    },
+    "devDependencies": {
+        "@opentui/core": "^0.1.99",
+        "@opentui/solid": "^0.1.99",
+        "@types/node": "^20.0.0",
+        "@vitest/coverage-v8": "^1.6.1",
+        "prettier": "^3.3.0",
+        "solid-js": "^1.9.12",
+        "typescript": "^5.0.0",
+        "vitest": "^1.6.1"
+    }
 }

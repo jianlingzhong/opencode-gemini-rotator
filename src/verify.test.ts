@@ -1,71 +1,89 @@
-import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
-import { server } from './server.js';
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
+/**
+ * End-to-end smoke test for the exported `server` plugin factory.
+ *
+ * Unlike `server.test.ts` (which exercises the `GeminiRotator` class
+ * directly), this file ensures the OpenCode-facing plugin entry point
+ * correctly:
+ *   1. Patches `globalThis.fetch`.
+ *   2. Routes a real `fetch()` call through the rotator.
+ *   3. Writes the configured debug log.
+ *   4. Restores `globalThis.fetch` afterwards (via `_resetForTesting`).
+ */
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import fs from "fs";
+import os from "os";
+import path from "path";
+import { server, _resetForTesting } from "./server.js";
 
-describe('Plugin Verification', () => {
-    const logFile = path.join(os.tmpdir(), 'gemini-rotator-verify.log');
-    const statusFile = path.join(os.tmpdir(), 'gemini-rotator-status.json');
+describe("server() plugin factory", () => {
+    const logFile = path.join(os.tmpdir(), `gemini-rotator-verify-${process.pid}.log`);
+    const statusFile = path.join(os.tmpdir(), "gemini-rotator-status.json");
+    const originalFetch = globalThis.fetch;
 
-    beforeEach(() => {
-        fs.writeFileSync(logFile, '');
+    beforeAll(() => {
+        // Start with a clean log for deterministic assertions.
+        try {
+            fs.writeFileSync(logFile, "");
+        } catch {
+            /* ignore */
+        }
     });
 
     afterAll(() => {
-        try {
-            if (fs.existsSync(statusFile)) {
-                fs.unlinkSync(statusFile);
+        _resetForTesting();
+        globalThis.fetch = originalFetch;
+        for (const f of [logFile, statusFile]) {
+            try {
+                if (fs.existsSync(f)) fs.unlinkSync(f);
+            } catch {
+                /* ignore */
             }
-        } catch (e) {}
+        }
     });
 
-    it('should intercept and log requests', async () => {
-        console.log("\n1. Stubbing global fetch...");
-        const originalFetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
-            error: {
-                message: "API key not valid. Please pass a valid API key.",
-                status: "INVALID_ARGUMENT",
-                details: [{ reason: "API_KEY_INVALID" }]
-            }
-        }), { status: 400 }));
-        vi.stubGlobal('fetch', originalFetch);
+    it("intercepts a Gemini request and rotates on API_KEY_INVALID", async () => {
+        const stub = vi.fn().mockResolvedValue(
+            new Response(
+                JSON.stringify({
+                    error: {
+                        message: "API key not valid. Please pass a valid API key.",
+                        status: "INVALID_ARGUMENT",
+                        details: [{ reason: "API_KEY_INVALID" }],
+                    },
+                }),
+                { status: 400 },
+            ),
+        );
+        vi.stubGlobal("fetch", stub);
 
-        console.log("2. Initializing plugin with fake keys...");
-        const mockClient = { 
-            tui: { 
-                showToast: vi.fn().mockResolvedValue({}) 
-            } 
-        };
-        
-        await server({ client: mockClient } as any, { 
-            keys: ['FAKE_KEY_1', 'FAKE_KEY_2'],
-            logFile: logFile
+        const showToast = vi.fn().mockResolvedValue({});
+
+        await server({ client: { tui: { showToast } } } as Parameters<typeof server>[0], {
+            keys: ["FAKE_KEY_1", "FAKE_KEY_2"],
+            logFile,
         });
 
-        console.log("\n3. Making a fetch request to Gemini API...");
-        try {
-            const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: [{ parts: [{ text: "Hello" }] }] })
-            });
-            console.log("Response Status:", res.status);
-            // Wait for log file to be written
-            await new Promise(resolve => setTimeout(resolve, 500));
-        } catch (e) {
-            console.error("Fetch failed:", e);
-        }
+        await expect(
+            fetch(
+                "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent",
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: "Hi" }] }] }),
+                },
+            ),
+        ).rejects.toThrow(/invalid/i);
 
-        console.log("\n4. Checking the debug log to verify interception and rotation...");
-        if (fs.existsSync(logFile)) {
-            const logContent = fs.readFileSync(logFile, 'utf-8');
-            console.log(logContent);
-            expect(logContent).toContain('Intercepting Gemini Request');
-            expect(logContent).toContain('FAKE_KEY_1');
-        } else {
-            console.log("Log file not found!");
-            throw new Error("Log file not found");
-        }
+        // Give the async appendFile a brief moment to flush.
+        await new Promise(r => setTimeout(r, 50));
+
+        expect(fs.existsSync(logFile)).toBe(true);
+        const log = fs.readFileSync(logFile, "utf-8");
+        expect(log).toContain("Intercepting Gemini Request");
+        expect(log).toContain("FAKE_KEY_1");
+        expect(log).toContain("FAKE_KEY_2");
+        expect(stub).toHaveBeenCalledTimes(2);
+
+        vi.unstubAllGlobals();
     });
 });

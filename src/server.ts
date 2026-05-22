@@ -1,7 +1,7 @@
 import path from "path";
 import os from "os";
 import { type Plugin } from "@opencode-ai/plugin";
-import fs from 'fs';
+import fs from "fs";
 import { type KeyInfo } from "./shared.js";
 
 const statusFile = path.join(os.tmpdir(), "gemini-rotator-status.json");
@@ -21,7 +21,11 @@ export interface RotatorOptions {
 interface ToastClient {
     tui?: {
         showToast: (args: {
-            body: { message: string; variant?: "info" | "warning" | "success" | "error"; duration?: number };
+            body: {
+                message: string;
+                variant?: "info" | "warning" | "success" | "error";
+                duration?: number;
+            };
         }) => Promise<unknown>;
     };
 }
@@ -36,6 +40,19 @@ interface GeminiErrorBody {
 
 function notifyKeyUpdate(info: KeyInfo): void {
     fs.promises.writeFile(statusFile, JSON.stringify(info)).catch(() => {});
+}
+
+/**
+ * Render a key safely for display in logs, toasts, and the TUI sidebar.
+ * - OAuth bearer tokens (`ya29.*`) are labeled rather than truncated.
+ * - Standard API keys show a 4-char prefix and 4-char suffix so the user
+ *   can distinguish keys in their pool without exposing the secret middle.
+ * - Very short identifiers (test fakes) are shown verbatim.
+ */
+export function maskKey(key: string): string {
+    if (key.startsWith("ya29.") || key.startsWith("Bearer ")) return "OAuth Token";
+    if (key.length <= 12) return key;
+    return `${key.slice(0, 4)}…${key.slice(-4)}`;
 }
 
 export class GeminiRotator {
@@ -64,24 +81,22 @@ export class GeminiRotator {
         }
         this.fallbackKeys = this.fallbackKeys.filter(k => k.length > 0);
 
-        // Initialize status file with the loaded keys to clear any stale/fake keys from tests
-        // and instantly notify the UI that we have a pool ready.
+        // Notify the TUI sidebar of the current pool so it can render
+        // immediately, even before the first request flows through.
         if (this.fallbackKeys.length > 0) {
-            const activeKey = this.fallbackKeys[0];
-            const activeKeyMasked = activeKey.length > 15 ? activeKey.substring(0, 8) + "..." : (activeKey.startsWith('ya29.') ? "OAuth Token" : activeKey);
             notifyKeyUpdate({
                 index: 1,
-                maskedKey: activeKeyMasked,
-                total: this.fallbackKeys.length
+                maskedKey: maskKey(this.fallbackKeys[0]),
+                total: this.fallbackKeys.length,
             });
         } else {
-            // Clear status file so we don't show stale data (e.g. from unit tests)
+            // Clear any stale status from a previous run / unit test.
             try {
-                if (fs.existsSync(statusFile)) {
-                    fs.unlinkSync(statusFile);
-                }
-            } catch (e) {}
-            notifyKeyUpdate({ index: 0, maskedKey: 'None', total: 0 });
+                if (fs.existsSync(statusFile)) fs.unlinkSync(statusFile);
+            } catch {
+                // best-effort
+            }
+            notifyKeyUpdate({ index: 0, maskedKey: "None", total: 0 });
         }
     }
 
@@ -111,18 +126,18 @@ export class GeminiRotator {
 
     private sleep(ms: number, signal?: AbortSignal) {
         return new Promise<void>((resolve, reject) => {
-            if (signal?.aborted) return reject(new Error('Aborted'));
+            if (signal?.aborted) return reject(new Error("Aborted"));
             const timer = setTimeout(resolve, ms);
-            signal?.addEventListener('abort', () => {
+            signal?.addEventListener("abort", () => {
                 clearTimeout(timer);
-                reject(new Error('Aborted'));
+                reject(new Error("Aborted"));
             });
         });
     }
 
     public async fetch(reqInfo: RequestInfo | URL, init?: RequestInit): Promise<Response> {
         let urlObj: URL;
-        if (typeof reqInfo === 'string') {
+        if (typeof reqInfo === "string") {
             urlObj = new URL(reqInfo);
         } else if (reqInfo instanceof URL) {
             urlObj = new URL(reqInfo.toString());
@@ -132,7 +147,7 @@ export class GeminiRotator {
             return this.originalFetch(reqInfo, init);
         }
 
-        if (urlObj.hostname !== 'generativelanguage.googleapis.com') {
+        if (urlObj.hostname !== "generativelanguage.googleapis.com") {
             return this.originalFetch(reqInfo, init);
         }
 
@@ -147,17 +162,24 @@ export class GeminiRotator {
             });
         }
 
-        const providedKey = requestHeaders.get('x-goog-api-key') || urlObj.searchParams.get('key') || requestHeaders.get('authorization') || '';
+        const providedKey =
+            requestHeaders.get("x-goog-api-key") ||
+            urlObj.searchParams.get("key") ||
+            requestHeaders.get("authorization") ||
+            "";
 
         let keysToUse = this.fallbackKeys;
         if (providedKey) {
-            if (providedKey.includes(',')) {
-                keysToUse = providedKey.split(',').map(k => k.trim()).filter(k => k.length > 0);
+            if (providedKey.includes(",")) {
+                keysToUse = providedKey
+                    .split(",")
+                    .map(k => k.trim())
+                    .filter(k => k.length > 0);
             } else {
                 if (this.fallbackKeys.length > 0) {
                     keysToUse = [...this.fallbackKeys];
                     if (!keysToUse.includes(providedKey)) {
-                        keysToUse.push(providedKey); 
+                        keysToUse.push(providedKey);
                     }
                 } else {
                     keysToUse = [providedKey];
@@ -169,7 +191,7 @@ export class GeminiRotator {
             return this.originalFetch(reqInfo, init);
         }
 
-        urlObj.searchParams.delete('key');
+        urlObj.searchParams.delete("key");
         const newUrlStr = urlObj.toString();
 
         await this.fileLog(`--- Intercepting Gemini Request: ${urlObj.pathname} ---`);
@@ -183,10 +205,10 @@ export class GeminiRotator {
         while (true) {
             if (init?.signal?.aborted) {
                 await this.fileLog(`Request aborted by user.`);
-                throw new Error('Aborted');
+                throw new Error("Aborted");
             }
 
-            let validKeys = keysToUse.filter(k => {
+            const validKeys = keysToUse.filter(k => {
                 const state = this.keyStates.get(k);
                 return state && state.isValid !== false;
             });
@@ -194,7 +216,7 @@ export class GeminiRotator {
             if (validKeys.length === 0) {
                 await this.fileLog(`All keys marked as invalid!`);
                 this.showToast(`All provided Gemini keys are invalid!`, "error", 10000);
-                throw new Error('All provided Gemini keys are invalid');
+                throw new Error("All provided Gemini keys are invalid");
             }
 
             const now = Date.now();
@@ -217,32 +239,37 @@ export class GeminiRotator {
 
             const activeKey = validKeys[0];
             const activeState = this.keyStates.get(activeKey)!;
-            const activeKeyMasked = activeKey.length > 15 ? activeKey.substring(0, 8) + "..." : (activeKey.startsWith('ya29.') ? "OAuth Token" : activeKey);
+            const activeKeyMasked = maskKey(activeKey);
 
             notifyKeyUpdate({
                 index: keysToUse.indexOf(activeKey) + 1,
                 maskedKey: activeKeyMasked,
-                total: keysToUse.length
+                total: keysToUse.length,
             });
 
             if (activeState.availableAt > now) {
                 const sleepMs = activeState.availableAt - now;
-                await this.fileLog(`All keys exhausted. Sleeping ${sleepMs}ms until ${activeKeyMasked} available.`);
-                this.showToast(`All keys on cooldown. Waiting ${Math.ceil(sleepMs / 1000)}s...`, "warning", sleepMs);
-                try {
-                    await this.sleep(sleepMs, init?.signal ?? undefined);
-                } catch (e) {
-                    throw e;
-                }
+                await this.fileLog(
+                    `All keys exhausted. Sleeping ${sleepMs}ms until ${activeKeyMasked} available.`,
+                );
+                this.showToast(
+                    `All keys on cooldown. Waiting ${Math.ceil(sleepMs / 1000)}s…`,
+                    "warning",
+                    sleepMs,
+                );
+                await this.sleep(sleepMs, init?.signal ?? undefined);
             }
 
             const fetchHeaders = new Headers(requestHeaders);
-            if (activeKey.startsWith('Bearer ') || activeKey.startsWith('ya29.')) {
-                fetchHeaders.set('Authorization', activeKey.startsWith('Bearer ') ? activeKey : `Bearer ${activeKey}`);
-                fetchHeaders.delete('x-goog-api-key');
+            if (activeKey.startsWith("Bearer ") || activeKey.startsWith("ya29.")) {
+                fetchHeaders.set(
+                    "Authorization",
+                    activeKey.startsWith("Bearer ") ? activeKey : `Bearer ${activeKey}`,
+                );
+                fetchHeaders.delete("x-goog-api-key");
             } else {
-                fetchHeaders.set('x-goog-api-key', activeKey);
-                fetchHeaders.delete('Authorization');
+                fetchHeaders.set("x-goog-api-key", activeKey);
+                fetchHeaders.delete("Authorization");
             }
 
             let fetchInput: RequestInfo | URL;
@@ -262,7 +289,7 @@ export class GeminiRotator {
                     referrerPolicy: clonedReq.referrerPolicy,
                     integrity: clonedReq.integrity,
                     keepalive: clonedReq.keepalive,
-                    signal: clonedReq.signal
+                    signal: clonedReq.signal,
                 });
                 fetchInit = init || {};
             } else {
@@ -288,27 +315,35 @@ export class GeminiRotator {
                 shouldRotate = true;
                 await this.fileLog(`Rate limited (429).`);
                 delayMs = 60000;
-            } else if (!response.ok && (response.status === 403 || response.status === 400 || response.status === 503)) {
+            } else if (
+                !response.ok &&
+                (response.status === 403 || response.status === 400 || response.status === 503)
+            ) {
                 const cloned = response.clone();
                 try {
                     const errorData = (await cloned.json()) as GeminiErrorBody;
-                    const msg = errorData?.error?.message?.toLowerCase() || '';
+                    const msg = errorData?.error?.message?.toLowerCase() || "";
                     const firstDetail = errorData?.error?.details?.[0];
-                    const reason = firstDetail?.reason?.toLowerCase() || '';
-                    const errorStatus = errorData?.error?.status?.toLowerCase() || '';
+                    const reason = firstDetail?.reason?.toLowerCase() || "";
+                    const errorStatus = errorData?.error?.status?.toLowerCase() || "";
 
-                    await this.fileLog(`Error: msg="${msg}", reason="${reason}", status="${errorStatus}"`);
+                    await this.fileLog(
+                        `Error: msg="${msg}", reason="${reason}", status="${errorStatus}"`,
+                    );
 
-                    if (msg.includes('api key not valid') || reason.includes('api_key_invalid')) {
+                    if (msg.includes("api key not valid") || reason.includes("api_key_invalid")) {
                         isInvalid = true;
                         shouldRotate = true;
                     } else if (
-                        msg.includes('quota') || msg.includes('rate limit') || 
-                        reason.includes('rate_limit') || reason.includes('quota_exceeded') ||
-                        errorStatus === 'resource_exhausted' || errorStatus === 'unavailable'
+                        msg.includes("quota") ||
+                        msg.includes("rate limit") ||
+                        reason.includes("rate_limit") ||
+                        reason.includes("quota_exceeded") ||
+                        errorStatus === "resource_exhausted" ||
+                        errorStatus === "unavailable"
                     ) {
                         shouldRotate = true;
-                        const retryAfter = response.headers.get('retry-after');
+                        const retryAfter = response.headers.get("retry-after");
                         if (retryAfter) {
                             const parsed = parseInt(retryAfter, 10);
                             if (!isNaN(parsed)) delayMs = parsed * 1000;
@@ -317,9 +352,9 @@ export class GeminiRotator {
                             if (afterMatch) {
                                 const val = parseFloat(afterMatch[1]);
                                 const unit = afterMatch[2].toLowerCase();
-                                if (unit === 's') delayMs = val * 1000;
-                                if (unit === 'm') delayMs = val * 60 * 1000;
-                                if (unit === 'h') delayMs = val * 3600 * 1000;
+                                if (unit === "s") delayMs = val * 1000;
+                                if (unit === "m") delayMs = val * 60 * 1000;
+                                if (unit === "h") delayMs = val * 3600 * 1000;
                             }
                         }
                     }
@@ -336,7 +371,11 @@ export class GeminiRotator {
 
             if (shouldRotate) {
                 activeState.availableAt = Date.now() + delayMs;
-                this.showToast(`Rotating from ${activeKeyMasked} (Cooldown: ${Math.ceil(delayMs/1000)}s)`, "warning", 3000);
+                this.showToast(
+                    `Rotating from ${activeKeyMasked} (Cooldown: ${Math.ceil(delayMs / 1000)}s)`,
+                    "warning",
+                    3000,
+                );
                 continue;
             }
 
@@ -355,12 +394,24 @@ export class GeminiRotator {
 
 let rotator: GeminiRotator | null = null;
 
-export const id = "gemini-key-rotator";
-export const server: Plugin = async ({ client }, options) => {
+/**
+ * Reset the singleton (test-only helper). Restores the original
+ * `globalThis.fetch` so test files don't leak state between suites.
+ * @internal
+ */
+export function _resetForTesting(): void {
     if (rotator) {
         rotator.unpatch();
+        rotator = null;
     }
-    rotator = new GeminiRotator(client as unknown as ToastClient, (options ?? {}) as RotatorOptions);
+}
+
+export const id = "gemini-key-rotator";
+export const server: Plugin = async ({ client }, options) => {
+    if (rotator) rotator.unpatch();
+    // OpenCode's PluginInput exposes a wider client surface; we only depend
+    // on the optional `tui.showToast` subset (see `ToastClient`).
+    rotator = new GeminiRotator(client as ToastClient, (options ?? {}) as RotatorOptions);
     rotator.patch();
     return {};
 };

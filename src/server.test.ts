@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { GeminiRotator } from "./server.js";
+import { GeminiRotator, maskKey } from "./server.js";
 
 const GEMINI_URL = "https://generativelanguage.googleapis.com/v1/models";
 
@@ -10,6 +10,19 @@ function makeClient() {
         },
     };
 }
+
+describe("maskKey", () => {
+    it("labels OAuth bearer tokens", () => {
+        expect(maskKey("ya29.abcdefghij")).toBe("OAuth Token");
+        expect(maskKey("Bearer foo")).toBe("OAuth Token");
+    });
+    it("shows short fakes verbatim", () => {
+        expect(maskKey("key1")).toBe("key1");
+    });
+    it("masks middle of long keys", () => {
+        expect(maskKey("AIzaSyABCDEFGHIJKLMNOPQRSTUVWXYZ1234")).toBe("AIza…1234");
+    });
+});
 
 function jsonError(body: object, status: number, headers: Record<string, string> = {}): Response {
     return new Response(JSON.stringify(body), {
@@ -247,9 +260,7 @@ describe("GeminiRotator — rotation behavior", () => {
             throw Object.assign(new Error("Aborted"), { name: "AbortError" });
         });
 
-        await expect(
-            rotator.fetch(GEMINI_URL, { signal: controller.signal }),
-        ).rejects.toThrow();
+        await expect(rotator.fetch(GEMINI_URL, { signal: controller.signal })).rejects.toThrow();
     });
 });
 

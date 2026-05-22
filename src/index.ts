@@ -1,2 +1,2 @@
-import { server } from './server.js';
+import { server } from "./server.js";
 export { server };

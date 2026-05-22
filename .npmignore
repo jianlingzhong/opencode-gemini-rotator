@@ -1,11 +1,14 @@
-# Source maps & tests aren't needed in the published tarball
+# Sources and tests aren't shipped in the npm tarball
 src/**/*.test.ts
-verify.ts
 build.ts
 tsconfig.json
 vitest.config.ts
+.prettierrc
+.prettierignore
+.editorconfig
 
-# Dev/CI metadata
+# Dev / repo metadata
+.git/
 .github/
 .gitallowed
 .gitignore
@@ -13,6 +16,7 @@ vitest.config.ts
 CONTRIBUTING.md
 SECURITY.md
 CHANGELOG.md
+CODE_OF_CONDUCT.md
 bun.lock
 node_modules/
 coverage/
