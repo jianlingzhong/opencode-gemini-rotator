@@ -1,6 +1,9 @@
 {
     "name": "opencode-gemini-rotator",
     "version": "1.0.0",
+    "overrides": {
+        "qs": "^6.15.2"
+    },
     "description": "OpenCode plugin that rotates multiple Google Gemini API keys to bypass per-key rate limits (HTTP 429) and quota exhaustion (HTTP 403/503 RESOURCE_EXHAUSTED) — drop-in, transparent fetch interceptor with cooldown and TUI sidebar.",
     "keywords": [
         "opencode",
@@ -55,7 +58,6 @@
     },
     "files": [
         "dist",
-        "src",
         "LICENSE",
         "README.md",
         "CHANGELOG.md"
@@ -68,6 +70,7 @@
         "test": "vitest run",
         "test:watch": "vitest",
         "test:coverage": "vitest run --coverage",
+        "test:mutation": "stryker run",
         "typecheck": "tsc --noEmit",
         "lint": "eslint .",
         "lint:fix": "eslint . --fix",
@@ -79,14 +82,16 @@
         "prepublishOnly": "bun run lint && bun run typecheck && bun run test && bun run build && bun run size"
     },
     "dependencies": {
-        "@opencode-ai/plugin": "^1.4.3",
+        "@opencode-ai/plugin": "^1.15.9",
         "zod": "^4.4.3"
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",
         "@opentui/core": "^0.2.15",
         "@opentui/solid": "^0.2.15",
-        "@types/node": "^20.0.0",
+        "@stryker-mutator/core": "^9.6.1",
+        "@stryker-mutator/vitest-runner": "^9.6.1",
+        "@types/node": "^22",
         "@vitest/coverage-v8": "^4.1.7",
         "eslint": "^10.4.0",
         "eslint-plugin-n": "^18.0.1",
@@ -94,9 +99,9 @@
         "eslint-plugin-security": "^4.0.0",
         "fast-check": "^4.8.0",
         "knip": "^6.14.2",
-        "prettier": "^3.3.0",
-        "solid-js": "^1.9.12",
-        "typescript": "^5.0.0",
+        "prettier": "^3.8.3",
+        "solid-js": "^1.9.13",
+        "typescript": "^5",
         "typescript-eslint": "^8.59.4",
         "vitest": "^4.1.7"
     }
