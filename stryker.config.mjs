@@ -1,4 +1,5 @@
-/** @type {import('@stryker-mutator/api/core').PartialStrykerOptions} */
+// Stryker mutation testing configuration.
+// See https://stryker-mutator.io/docs/stryker-js/config-file/
 export default {
     packageManager: "npm",
     reporters: ["progress", "clear-text", "html"],

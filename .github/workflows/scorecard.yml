@@ -1,11 +1,16 @@
 name: OSSF Scorecard
 
+# OSSF Scorecard requires a public repo (it reads commit metadata via
+# the public GraphQL API). On a private repo it fails with
+# "Resource not accessible by integration". Manual-dispatch only until
+# the repo is flipped to public; then change `on:` back to:
+#   on:
+#     branch_protection_rule:
+#     schedule: [{ cron: "0 4 * * 1" }]
+#     push:    { branches: [main] }
+
 on:
-    branch_protection_rule:
-    schedule:
-        - cron: "0 4 * * 1"
-    push:
-        branches: [main]
+    workflow_dispatch:
 
 permissions: read-all
 
