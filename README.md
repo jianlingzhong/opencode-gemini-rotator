@@ -21,6 +21,7 @@
 - [How it works](#how-it-works)
 - [Debugging](#debugging)
 - [Development](#development)
+- [Troubleshooting](#troubleshooting)
 - [FAQ](#faq)
 - [Security](#security)
 - [Contributing](#contributing)
@@ -44,8 +45,8 @@ automatically — your session keeps moving without you doing anything.
   from the rotation for the rest of the session.
 - **Transparent interception** — monkey-patches `globalThis.fetch`, so the
   `@opencode-ai/sdk` and any other code Just Works without modification.
-- **OAuth-aware** — `ya29.*` and `Bearer `-prefixed values are sent in the
-  `Authorization` header; raw API keys go in `x-goog-api-key`.
+- **OAuth-aware** — `ya29.*` and `Bearer`-prefixed values are sent in
+  the `Authorization` header; raw API keys go in `x-goog-api-key`.
 - **TUI sidebar** — shows the active key index, masked value, and pool size
   in the OpenCode right-side panel, refreshed in real time.
 - **Scoped impact** — only requests to `generativelanguage.googleapis.com`
@@ -133,6 +134,49 @@ running from a local clone.
 
 ## How it works
 
+### Architecture
+
+```mermaid
+flowchart LR
+    A[OpenCode / SDK] -->|fetch| B[globalThis.fetch hook]
+    B -->|other host| C[Original fetch]
+    B -->|Gemini host| D[GeminiRotator]
+    D -->|pick healthy key| E[Original fetch]
+    E --> F{Response}
+    F -->|2xx| G[Return to caller]
+    F -->|429 / 403 / 400 quota| H[Mark cooldown, rotate]
+    F -->|400 invalid key| I[Mark invalid, rotate]
+    H --> D
+    I --> D
+```
+
+### Request lifecycle
+
+```mermaid
+sequenceDiagram
+    participant App as OpenCode
+    participant Hook as globalThis.fetch
+    participant Rot as GeminiRotator
+    participant API as Gemini API
+
+    App->>Hook: fetch(geminiUrl, init)
+    Hook->>Rot: dispatch (host matches)
+    loop while shouldRotate
+        Rot->>Rot: pick healthiest key
+        Rot->>API: fetch(url, headers w/ key)
+        API-->>Rot: response
+        alt 2xx
+            Rot-->>App: response
+        else 429 / quota
+            Rot->>Rot: park key for cooldown
+        else API_KEY_INVALID
+            Rot->>Rot: mark key invalid (session)
+        end
+    end
+```
+
+### Step-by-step
+
 1. **Init.** Each configured key is registered as healthy
    (`isValid: true, availableAt: 0`).
 2. **Intercept.** The plugin hooks `globalThis.fetch`. Requests to hosts
@@ -140,7 +184,7 @@ running from a local clone.
 3. **Key selection.** Any key already present on the inbound request
    (header or `?key=` query param) is added to the candidate pool so
    OpenCode's native credentials remain in play.
-4. **Header normalization.** Keys starting with `ya29.` or `Bearer ` are
+4. **Header normalization.** Keys starting with `ya29.` or `Bearer` are
    placed in the `Authorization` header; everything else goes in
    `x-goog-api-key`. The `?key=` query param is stripped from the URL.
 5. **Failure & rotation.**
@@ -195,6 +239,35 @@ bun run build          # produce ./dist
 
 CI runs typecheck, format check, tests, and build on every push and PR
 across Ubuntu and macOS.
+
+## Troubleshooting
+
+**The TUI sidebar doesn't appear.**
+The sidebar only shows once the rotator has been initialized with at
+least one key. Make sure your `opencode.json` either lists keys inline
+or that `GEMINI_API_KEYS` is exported in the shell that launches
+OpenCode. The sidebar reads from `$TMPDIR/gemini-rotator-status.json`;
+delete that file and restart OpenCode if you suspect stale state.
+
+**Rotation toast never shows.**
+Toasts only fire when a key is rotated. If your first key has fresh
+quota, you'll never see one. Force a rotation by temporarily putting an
+obviously bogus key first: `["AIzaBOGUSKEY", "AIza...your-real-key"]`.
+
+**"All provided Gemini keys are invalid" thrown immediately.**
+At least one key in your pool returned `API_KEY_INVALID` and there are
+no others available. Run with `OPENCODE_GEMINI_DEBUG=1` and check
+`/tmp/gemini-rotator-debug.log` for the masked key and the full error
+message.
+
+**`opencode` doesn't pick up the plugin.**
+Confirm OpenCode 1.4.3+ (`opencode --version`). For local installs, the
+path must be absolute. For npm installs, run `bun cache rm` and restart
+to force a reinstall into `~/.cache/opencode/node_modules/`.
+
+**CI for my fork fails on `format:check`.**
+Run `bun run format` locally and commit the result. Prettier config
+lives in `.prettierrc`.
 
 ## FAQ
 

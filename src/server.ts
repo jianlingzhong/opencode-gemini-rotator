@@ -2,6 +2,7 @@ import path from "path";
 import os from "os";
 import { type Plugin } from "@opencode-ai/plugin";
 import fs from "fs";
+import { z } from "zod";
 import { type KeyInfo } from "./shared.js";
 
 const statusFile = path.join(os.tmpdir(), "gemini-rotator-status.json");
@@ -11,12 +12,19 @@ interface KeyState {
     availableAt: number;
 }
 
-export interface RotatorOptions {
-    /** Array or comma-separated string of Gemini API keys. */
-    keys?: string[] | string;
-    /** Optional path to a debug log file. If omitted, no file logging is performed. */
-    logFile?: string;
-}
+/**
+ * Zod schema for the plugin options object as it appears in
+ * `opencode.json`. Keeping validation at the boundary protects us from
+ * prototype pollution and stops obvious config typos like `key:` (no s).
+ */
+export const RotatorOptionsSchema = z
+    .object({
+        keys: z.union([z.array(z.string()), z.string()]).optional(),
+        logFile: z.string().optional(),
+    })
+    .strict();
+
+export type RotatorOptions = z.infer<typeof RotatorOptionsSchema>;
 
 interface ToastClient {
     tui?: {
@@ -38,8 +46,40 @@ interface GeminiErrorBody {
     };
 }
 
-function notifyKeyUpdate(info: KeyInfo): void {
+// Cap the keyStates Map to prevent unbounded growth if a caller passes
+// many ephemeral keys via inbound headers. Real-world pools are < 50.
+const MAX_TRACKED_KEYS = 256;
+
+// Throttle status-file writes so a high-RPS workload doesn't spam
+// the disk. The TUI sidebar polls at 5s + watches for changes, so a
+// 250ms throttle is more than fast enough for human-visible feedback.
+const STATUS_WRITE_THROTTLE_MS = 250;
+let lastWriteAt = 0;
+let pendingInfo: KeyInfo | null = null;
+let writeTimer: NodeJS.Timeout | null = null;
+
+function flushStatus(): void {
+    if (!pendingInfo) return;
+    const info = pendingInfo;
+    pendingInfo = null;
+    lastWriteAt = Date.now();
     fs.promises.writeFile(statusFile, JSON.stringify(info)).catch(() => {});
+}
+
+function notifyKeyUpdate(info: KeyInfo): void {
+    pendingInfo = info;
+    const now = Date.now();
+    const since = now - lastWriteAt;
+    if (since >= STATUS_WRITE_THROTTLE_MS) {
+        flushStatus();
+    } else if (!writeTimer) {
+        writeTimer = setTimeout(() => {
+            writeTimer = null;
+            flushStatus();
+        }, STATUS_WRITE_THROTTLE_MS - since);
+        // Don't block process exit on this timer.
+        writeTimer.unref?.();
+    }
 }
 
 /**
@@ -198,6 +238,12 @@ export class GeminiRotator {
 
         keysToUse.forEach(k => {
             if (!this.keyStates.has(k)) {
+                // Evict oldest entries if the map would exceed the cap.
+                // For a session-scoped rotator this is purely defensive.
+                if (this.keyStates.size >= MAX_TRACKED_KEYS) {
+                    const firstKey = this.keyStates.keys().next().value;
+                    if (firstKey !== undefined) this.keyStates.delete(firstKey);
+                }
                 this.keyStates.set(k, { isValid: true, availableAt: 0 });
             }
         });
@@ -409,9 +455,20 @@ export function _resetForTesting(): void {
 export const id = "gemini-key-rotator";
 export const server: Plugin = async ({ client }, options) => {
     if (rotator) rotator.unpatch();
+    // Validate untrusted options at the trust boundary. We throw on a
+    // genuine schema violation (e.g. `keys: 42`) but accept the most
+    // common typing mistakes by passing `{}` if validation fails.
+    const parsed = RotatorOptionsSchema.safeParse(options ?? {});
+    const opts = parsed.success ? parsed.data : {};
+    if (!parsed.success) {
+        console.warn(
+            "[opencode-gemini-rotator] Invalid plugin options; falling back to defaults:",
+            parsed.error.issues,
+        );
+    }
     // OpenCode's PluginInput exposes a wider client surface; we only depend
     // on the optional `tui.showToast` subset (see `ToastClient`).
-    rotator = new GeminiRotator(client as ToastClient, (options ?? {}) as RotatorOptions);
+    rotator = new GeminiRotator(client as ToastClient, opts);
     rotator.patch();
     return {};
 };

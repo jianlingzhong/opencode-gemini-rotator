@@ -8,7 +8,7 @@ accept it gracefully.
 ## Reporting
 
 If you experience or witness unacceptable behavior, please report it to
-the maintainer at **jianlingzh@gmail.com**. Reports are confidential.
+the maintainer at **<jianlingzh@gmail.com>**. Reports are confidential.
 
 Maintainers will review and act on reports within a reasonable timeframe.
 Consequences may include warnings, temporary bans, or permanent removal

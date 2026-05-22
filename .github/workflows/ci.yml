@@ -31,12 +31,37 @@ jobs:
               run: bun install --frozen-lockfile
             - name: Format check
               run: bun run format:check
+            - name: Lint
+              run: bun run lint
             - name: Typecheck
               run: bun run typecheck
+            - name: Dead-code check
+              run: bun run deadcode
             - name: Test
               run: bun run test
             - name: Build
               run: bun run build
+            - name: Size budget
+              run: bun run size
+
+    lint-docs:
+        name: Lint docs
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - name: Setup Bun
+              uses: oven-sh/setup-bun@v2
+              with:
+                  bun-version: latest
+            - name: Install markdownlint
+              run: bun add -g markdownlint-cli2
+            - name: Markdown lint
+              run: markdownlint-cli2 '**/*.md' '#node_modules' '#dist' '#coverage' '#.opencode'
+            - name: Link check
+              uses: lycheeverse/lychee-action@v2
+              with:
+                  args: --config lychee.toml '**/*.md'
+                  fail: true
 
     coverage:
         name: Coverage

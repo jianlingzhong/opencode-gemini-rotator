@@ -23,21 +23,40 @@ function SidebarView(props: { api: TuiPluginApi }) {
     const [info, setInfo] = createSignal<KeyInfo>(initialKeyInfo);
     const theme = () => props.api.theme.current;
 
+    const readStatus = () => {
+        try {
+            if (fs.existsSync(statusFile)) {
+                const content = fs.readFileSync(statusFile, "utf-8");
+                const data = JSON.parse(content) as KeyInfo;
+                setInfo(data);
+            }
+        } catch (e) {
+            debugLog(`error reading status: ${e}`);
+        }
+    };
+
     onMount(() => {
         debugLog(`config keys: ${Object.keys(props.api.state.config).join(", ")}`);
 
-        const interval = setInterval(() => {
-            try {
-                if (fs.existsSync(statusFile)) {
-                    const content = fs.readFileSync(statusFile, "utf-8");
-                    const data = JSON.parse(content) as KeyInfo;
-                    setInfo(data);
-                }
-            } catch (e) {
-                debugLog(`error reading status: ${e}`);
-            }
-        }, 1000);
-        onCleanup(() => clearInterval(interval));
+        // Initial read.
+        readStatus();
+
+        // Prefer event-based file watching to 1-second polling. fs.watch can
+        // fail on some Linux setups (inotify limits) so we keep a slow
+        // poll as a belt-and-suspenders backup at 5s instead of 1s.
+        let watcher: fs.FSWatcher | undefined;
+        try {
+            watcher = fs.watch(statusFile, { persistent: false }, () => readStatus());
+            watcher.on("error", (err: unknown) => debugLog(`fs.watch error: ${err}`));
+        } catch (e) {
+            debugLog(`fs.watch unavailable, falling back to polling: ${e}`);
+        }
+        const interval = setInterval(readStatus, 5000);
+
+        onCleanup(() => {
+            clearInterval(interval);
+            watcher?.close();
+        });
     });
 
     const isGeminiActive = () => info().total > 0;
