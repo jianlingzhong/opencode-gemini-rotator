@@ -75,7 +75,7 @@ describe("server() plugin factory", () => {
         ).rejects.toThrow(/invalid/i);
 
         // Give the async appendFile a brief moment to flush.
-        await new Promise(r => setTimeout(r, 50));
+        await new Promise(resolve => setTimeout(resolve, 50));
 
         expect(fs.existsSync(logFile)).toBe(true);
         const log = fs.readFileSync(logFile, "utf-8");

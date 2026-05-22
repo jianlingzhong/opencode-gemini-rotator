@@ -69,22 +69,35 @@
         "test:watch": "vitest",
         "test:coverage": "vitest run --coverage",
         "typecheck": "tsc --noEmit",
+        "lint": "eslint .",
+        "lint:fix": "eslint . --fix",
         "format": "prettier --write .",
         "format:check": "prettier --check .",
-        "prepublishOnly": "bun run typecheck && bun run test && bun run build"
+        "deadcode": "knip",
+        "size": "node scripts/check-size.mjs",
+        "audit:full": "bun audit && osv-scanner --lockfile=bun.lock",
+        "prepublishOnly": "bun run lint && bun run typecheck && bun run test && bun run build && bun run size"
     },
     "dependencies": {
         "@opencode-ai/plugin": "^1.4.3",
-        "@opencode-ai/sdk": "^1.4.3"
+        "zod": "^4.4.3"
     },
     "devDependencies": {
-        "@opentui/core": "^0.1.99",
-        "@opentui/solid": "^0.1.99",
+        "@eslint/js": "^10.0.1",
+        "@opentui/core": "^0.2.15",
+        "@opentui/solid": "^0.2.15",
         "@types/node": "^20.0.0",
-        "@vitest/coverage-v8": "^1.6.1",
+        "@vitest/coverage-v8": "^4.1.7",
+        "eslint": "^10.4.0",
+        "eslint-plugin-n": "^18.0.1",
+        "eslint-plugin-promise": "^7.3.0",
+        "eslint-plugin-security": "^4.0.0",
+        "fast-check": "^4.8.0",
+        "knip": "^6.14.2",
         "prettier": "^3.3.0",
         "solid-js": "^1.9.12",
         "typescript": "^5.0.0",
-        "vitest": "^1.6.1"
+        "typescript-eslint": "^8.59.4",
+        "vitest": "^4.1.7"
     }
 }

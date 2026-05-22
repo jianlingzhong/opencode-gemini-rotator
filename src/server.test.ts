@@ -1,4 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import fs from "fs";
+import os from "os";
+import path from "path";
 import { GeminiRotator, maskKey } from "./server.js";
 
 const GEMINI_URL = "https://generativelanguage.googleapis.com/v1/models";
@@ -261,6 +264,63 @@ describe("GeminiRotator — rotation behavior", () => {
         });
 
         await expect(rotator.fetch(GEMINI_URL, { signal: controller.signal })).rejects.toThrow();
+    });
+});
+
+describe("GeminiRotator — log redaction", () => {
+    let tmpLog: string;
+
+    beforeEach(() => {
+        tmpLog = path.join(os.tmpdir(), `gemini-rotator-redact-${Date.now()}-${Math.random()}.log`);
+        vi.stubGlobal("fetch", vi.fn());
+    });
+
+    afterEach(() => {
+        vi.unstubAllGlobals();
+        try {
+            if (fs.existsSync(tmpLog)) fs.unlinkSync(tmpLog);
+        } catch {
+            /* ignore */
+        }
+    });
+
+    it("never writes a full long API key to the log", async () => {
+        const SECRET = "AIzaSyTHISISAFAKEKEYTHATSHOULDNEVERAPPEARWHOLE12345";
+        const rotator = new GeminiRotator(makeClient(), {
+            keys: [SECRET, "AIzaSySECONDFAKE_____________________________"],
+            logFile: tmpLog,
+        });
+
+        vi.mocked(globalThis.fetch)
+            .mockResolvedValueOnce(new Response("rl", { status: 429 }))
+            .mockResolvedValueOnce(new Response("ok", { status: 200 }));
+
+        await rotator.fetch(GEMINI_URL);
+
+        // Wait for async appendFile flushes.
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        const log = fs.readFileSync(tmpLog, "utf-8");
+        expect(log).not.toContain(SECRET);
+        // Mask should appear instead.
+        expect(log).toContain(maskKey(SECRET));
+    });
+
+    it("never writes a ya29 OAuth token to the log", async () => {
+        const TOKEN = "ya29.SOMETHINGTHATLOOKSLIKEAREALTOKEN_DO_NOT_LEAK";
+        const rotator = new GeminiRotator(makeClient(), {
+            keys: [TOKEN],
+            logFile: tmpLog,
+        });
+
+        vi.mocked(globalThis.fetch).mockResolvedValue(new Response("ok", { status: 200 }));
+
+        await rotator.fetch(GEMINI_URL);
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        const log = fs.readFileSync(tmpLog, "utf-8");
+        expect(log).not.toContain(TOKEN);
+        expect(log).toContain("OAuth Token");
     });
 });
 

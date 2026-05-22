@@ -18,7 +18,7 @@ Use one of these private channels instead:
 
 1. **GitHub Security Advisory** (preferred): open a draft at
    <https://github.com/jianlingzhong/opencode-gemini-rotator/security/advisories/new>.
-2. **Email** the maintainer: **jianlingzh@gmail.com**.
+2. **Email** the maintainer: **<jianlingzh@gmail.com>**.
 
 Please include:
 

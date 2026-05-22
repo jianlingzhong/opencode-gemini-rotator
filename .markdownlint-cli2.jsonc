@@ -1,0 +1,22 @@
+{
+    "config": {
+        "default": true,
+        // Line length: relaxed for prose, strict line-length checking is more pain than gain.
+        "MD013": false,
+        // Allow inline HTML (e.g. comment markers in PR template, <details> tags).
+        "MD033": false,
+        // Don't require a single h1 — README has a banner block above the h1.
+        "MD041": false,
+        // Allow duplicate headings under different parents (FAQ pattern).
+        "MD024": { "siblings_only": true },
+        // Prettier uses 4-space indent for nested lists; align with that.
+        "MD007": { "indent": 4 },
+    },
+    "ignores": [
+        "node_modules/**",
+        "dist/**",
+        "coverage/**",
+        ".opencode/**",
+        ".github/ISSUE_TEMPLATE/*.yml",
+    ],
+}
