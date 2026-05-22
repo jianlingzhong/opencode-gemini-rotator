@@ -78,7 +78,7 @@
         "@opencode-ai/sdk": "^1.4.3"
     },
     "devDependencies": {
-        "@opentui/core": "^0.1.99",
+        "@opentui/core": "^0.2.15",
         "@opentui/solid": "^0.1.99",
         "@types/node": "^20.0.0",
         "@vitest/coverage-v8": "^1.6.1",
