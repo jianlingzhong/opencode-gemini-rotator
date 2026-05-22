@@ -1,0 +1,66 @@
+name: Bug report
+description: Report a problem with opencode-gemini-rotator
+title: "[bug]: "
+labels: ["bug", "triage"]
+body:
+    - type: markdown
+      attributes:
+          value: |
+              Thanks for taking the time to file a bug! Please don't paste real API
+              keys anywhere in this issue.
+    - type: textarea
+      id: what-happened
+      attributes:
+          label: What happened?
+          description: A clear and concise description of the bug.
+          placeholder: When I ran ... I expected ... but got ...
+      validations:
+          required: true
+    - type: textarea
+      id: repro
+      attributes:
+          label: Steps to reproduce
+          description: Minimal reproduction. Include the relevant slice of `opencode.json` (with keys redacted).
+          placeholder: |
+              1. `opencode.json` contains: `{ "plugin": [["...", { "keys": ["AIza...REDACTED"] }]] }`
+              2. Run `opencode` and send "hello"
+              3. Observe: …
+          render: markdown
+      validations:
+          required: true
+    - type: textarea
+      id: logs
+      attributes:
+          label: Debug log
+          description: |
+              Run with `OPENCODE_GEMINI_DEBUG=1` and paste the relevant portion of
+              `/tmp/gemini-rotator-debug.log`. Redact any real keys.
+          render: shell
+    - type: input
+      id: opencode-version
+      attributes:
+          label: OpenCode version
+          placeholder: "e.g. 1.4.3"
+      validations:
+          required: true
+    - type: input
+      id: plugin-version
+      attributes:
+          label: Plugin version
+          placeholder: "e.g. 1.0.5"
+      validations:
+          required: true
+    - type: input
+      id: runtime
+      attributes:
+          label: Node / Bun version
+          placeholder: "node v20.10, bun 1.1"
+      validations:
+          required: true
+    - type: input
+      id: os
+      attributes:
+          label: OS
+          placeholder: "macOS 14.5 / Ubuntu 24.04 / Windows 11"
+      validations:
+          required: true

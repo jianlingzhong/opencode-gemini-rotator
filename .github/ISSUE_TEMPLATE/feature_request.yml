@@ -1,0 +1,22 @@
+name: Feature request
+description: Suggest a new feature or enhancement
+title: "[feat]: "
+labels: ["enhancement"]
+body:
+    - type: textarea
+      id: problem
+      attributes:
+          label: What problem are you trying to solve?
+          description: Describe the user-visible problem, not the proposed solution.
+      validations:
+          required: true
+    - type: textarea
+      id: proposal
+      attributes:
+          label: Proposed solution
+          description: Optional. How would you imagine this working?
+    - type: textarea
+      id: alternatives
+      attributes:
+          label: Alternatives considered
+          description: Have you considered any workarounds or alternative designs?

@@ -4,4 +4,4 @@ export interface KeyInfo {
     total: number;
 }
 
-export const initialKeyInfo: KeyInfo = { index: 0, maskedKey: 'None', total: 0 };
+export const initialKeyInfo: KeyInfo = { index: 0, maskedKey: "None", total: 0 };

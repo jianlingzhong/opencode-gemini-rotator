@@ -19,25 +19,12 @@ function debugLog(msg: string) {
     }
 }
 
-function SidebarView(props: { api: TuiPluginApi; session_id?: string }) {
+function SidebarView(props: { api: TuiPluginApi }) {
     const [info, setInfo] = createSignal<KeyInfo>(initialKeyInfo);
-    const [, setSessionModel] = createSignal<string>("");
     const theme = () => props.api.theme.current;
 
     onMount(() => {
         debugLog(`config keys: ${Object.keys(props.api.state.config).join(", ")}`);
-
-        if (props.session_id) {
-            props.api.client.session
-                .get({ sessionID: props.session_id })
-                .then(res => {
-                    const data = res?.data as { model?: string; extra?: { model?: string } } | undefined;
-                    const model = data?.extra?.model || data?.model || "";
-                    if (model) setSessionModel(model);
-                    debugLog(`Session GET: model=${model}`);
-                })
-                .catch(() => {});
-        }
 
         const interval = setInterval(() => {
             try {
@@ -81,7 +68,7 @@ function SidebarView(props: { api: TuiPluginApi; session_id?: string }) {
     );
 }
 
-export const tui: TuiPlugin = async (api) => {
+export const tui: TuiPlugin = async api => {
     try {
         api.slots.register({
             order: 100,
@@ -89,9 +76,8 @@ export const tui: TuiPlugin = async (api) => {
                 home_prompt_right() {
                     return <SidebarView api={api} />;
                 },
-                sidebar_content(props) {
-                    const sid = (props as { session_id?: string }).session_id;
-                    return <SidebarView api={api} session_id={sid} />;
+                sidebar_content() {
+                    return <SidebarView api={api} />;
                 },
             },
         });
