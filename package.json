@@ -79,7 +79,7 @@
     },
     "devDependencies": {
         "@opentui/core": "^0.1.99",
-        "@opentui/solid": "^0.1.99",
+        "@opentui/solid": "^0.2.15",
         "@types/node": "^20.0.0",
         "@vitest/coverage-v8": "^1.6.1",
         "prettier": "^3.3.0",
