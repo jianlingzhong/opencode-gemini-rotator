@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0](https://github.com/jianlingzhong/opencode-gemini-rotator/compare/v1.0.5...v1.1.0) (2026-05-22)
+
+
+### Features
+
+* hide sidebar when not using Gemini providers/models ([01e284b](https://github.com/jianlingzhong/opencode-gemini-rotator/commit/01e284b06c50404868a997dbb70133523d33ecdf))
+
+
+### Bug Fixes
+
+* resolve conditional rendering bug by ensuring SolidJS Show component is wrapped in a persistent box ([0feff22](https://github.com/jianlingzhong/opencode-gemini-rotator/commit/0feff2271ffe9a67aee6c38610b80485cd286dc2))
+
 ## [Unreleased]
 
 ## [1.0.5] - 2026-05-22
