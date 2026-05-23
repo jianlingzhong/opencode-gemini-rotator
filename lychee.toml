@@ -8,12 +8,8 @@ timeout = 20
 
 # URLs that are not (yet) reachable anonymously.
 exclude = [
-    # npm package URL.
     "https://www.npmjs.com/package/opencode-gemini-rotator",
-    # GitHub security advisory page.
     "https://github.com/jianlingzhong/opencode-gemini-rotator/security/advisories/new",
-    # GitHub Actions badges/links.
-    
     "https://github.com/jianlingzhong/opencode-gemini-rotator/actions/workflows/.*",
 ]
 
