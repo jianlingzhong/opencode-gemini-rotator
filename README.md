@@ -229,7 +229,7 @@ value, and pool size.
 
 ```bash
 bun install
-bun run test           # 21 unit tests
+bun run test           # unit + property-based tests
 bun run test:coverage  # v8 coverage report
 bun run typecheck      # tsc --noEmit
 bun run format         # prettier --write .

@@ -18,7 +18,7 @@ bun install
 ## Development loop
 
 ```bash
-bun run test           # 21 unit tests
+bun run test           # unit + property-based tests
 bun run test:watch     # re-run on file changes
 bun run test:coverage  # v8 coverage report
 bun run typecheck      # tsc --noEmit
@@ -34,6 +34,7 @@ All source lives in `src/`:
 - `src/index.ts` — re-exports for the OpenCode plugin loader
 - `src/shared.ts` — types shared between server and TUI
 - `src/server.test.ts` — unit tests for the rotator class and helpers
+- `src/properties.test.ts` — property-based tests (`fast-check`) for pure functions
 - `src/verify.test.ts` — integration smoke test for the `server` factory
 
 ## Code-quality standards
