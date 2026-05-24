@@ -9,15 +9,20 @@ on:
         - cron: "37 4 * * 1"
     workflow_dispatch:
 
+# Top-level: read-only. The analyze job escalates as needed.
 permissions:
-    actions: read
     contents: read
-    security-events: write
 
 jobs:
     analyze:
         name: Analyze ${{ matrix.language }}
         runs-on: ubuntu-latest
+        # security-events:write -> upload SARIF to code-scanning
+        # actions:read -> CodeQL Action discovery
+        permissions:
+            actions: read
+            contents: read
+            security-events: write
         strategy:
             fail-fast: false
             matrix:
