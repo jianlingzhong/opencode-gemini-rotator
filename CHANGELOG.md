@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-05-24
+
+### Changed
+
+- Release workflow now publishes to npm via OIDC trusted publishing
+  instead of a long-lived token. Node version bumped to 22, npm CLI
+  upgraded to >= 11.5.1 in the release job. Provenance is generated
+  automatically by trusted publishing.
+
 ## [1.1.0](https://github.com/jianlingzhong/opencode-gemini-rotator/compare/v1.0.0...v1.1.0) (2026-05-24)
 
 ### Features
