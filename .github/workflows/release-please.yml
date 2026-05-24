@@ -4,13 +4,17 @@ on:
     push:
         branches: [main]
 
+# Top-level: minimum permissions; the publish job escalates as needed.
 permissions:
-    contents: write
-    pull-requests: write
+    contents: read
 
 jobs:
     release-please:
         runs-on: ubuntu-latest
+        # Job-level scope: release-please needs to create tags + open PRs.
+        permissions:
+            contents: write
+            pull-requests: write
         steps:
             - uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4.4.1
               with:

@@ -5,13 +5,17 @@ on:
         - cron: "23 1 * * *"
     workflow_dispatch:
 
+# Top-level: read-only. Job-level escalates only what's needed.
 permissions:
-    issues: write
-    pull-requests: write
+    contents: read
 
 jobs:
     stale:
         runs-on: ubuntu-latest
+        # actions/stale needs to comment on + close stale issues/PRs.
+        permissions:
+            issues: write
+            pull-requests: write
         steps:
             - uses: actions/stale@5bef64f19d7facfb25b37b414482c7164d639639 # v9.1.0
               with:
