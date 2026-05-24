@@ -1,15 +1,11 @@
 name: OSSF Scorecard
 
-# Manual-dispatch only by default. For continuous monitoring, replace
-# the `on:` block below with:
-#   on:
-#     branch_protection_rule:
-#     schedule: [{ cron: "0 4 * * 1" }]
-#     push:    { branches: [main] }
-# Scorecard reads commit metadata via the public GraphQL API and
-# requires the repository to be accessible to that API.
-
 on:
+    branch_protection_rule:
+    schedule:
+        - cron: "0 4 * * 1"
+    push:
+        branches: [main]
     workflow_dispatch:
 
 permissions: read-all
