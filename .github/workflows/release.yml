@@ -26,8 +26,11 @@ jobs:
             - name: Setup Node (for npm publish)
               uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
               with:
-                  node-version: "20"
+                  node-version: "22"
                   registry-url: "https://registry.npmjs.org"
+
+            - name: Upgrade npm to >=11.5.1 (required for trusted publishing)
+              run: npm install -g npm@latest
 
             - name: Install
               run: bun install --frozen-lockfile
@@ -55,10 +58,13 @@ jobs:
                     exit 1
                   fi
 
-            - name: Publish to npm
-              env:
-                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-              run: npm publish --provenance --access public
+            # OIDC trusted publishing: npm CLI auto-detects the OIDC
+            # environment (id-token: write permission above) and exchanges
+            # it for a short-lived publish token. No NPM_TOKEN needed.
+            # Provenance is generated automatically; the --provenance flag
+            # is not necessary and is omitted.
+            - name: Publish to npm (via OIDC trusted publishing)
+              run: npm publish --access public
 
             - name: Create GitHub Release
               uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
