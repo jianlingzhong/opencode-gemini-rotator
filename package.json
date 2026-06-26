@@ -87,7 +87,7 @@
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",
-        "@opentui/core": "^0.2.15",
+        "@opentui/core": "^0.4.2",
         "@opentui/solid": "^0.2.15",
         "@stryker-mutator/core": "^9.6.1",
         "@stryker-mutator/vitest-runner": "^9.6.1",
