@@ -101,7 +101,7 @@
         "knip": "^6.14.2",
         "prettier": "^3.8.3",
         "solid-js": "^1.9.13",
-        "typescript": "^5",
+        "typescript": "^7",
         "typescript-eslint": "^8.59.4",
         "vitest": "^4.1.7"
     }
