@@ -89,7 +89,7 @@
         "@eslint/js": "^10.0.1",
         "@opentui/core": "^0.2.15",
         "@opentui/solid": "^0.2.15",
-        "@stryker-mutator/core": "^9.6.1",
+        "@stryker-mutator/core": "^10.0.0",
         "@stryker-mutator/vitest-runner": "^9.6.1",
         "@types/node": "^22",
         "@vitest/coverage-v8": "^4.1.7",
